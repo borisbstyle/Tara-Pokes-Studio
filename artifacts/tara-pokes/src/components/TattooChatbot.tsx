@@ -12,7 +12,7 @@ interface Message {
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 export default function TattooChatbot() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -74,7 +74,7 @@ export default function TattooChatbot() {
       const response = await fetch(`${BASE}/api/openai/conversations/${id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ content: text, lang }),
       });
 
       if (!response.body) throw new Error("No response body");

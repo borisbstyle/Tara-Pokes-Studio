@@ -31,6 +31,8 @@ router.post("/conversations/:id/messages", async (req, res) => {
   }
 
   const id = paramParsed.data.id;
+  const lang: string = req.body.lang === "nl" ? "nl" : "en";
+
   const [conv] = await db.select().from(conversations).where(eq(conversations.id, id));
   if (!conv) {
     res.status(404).json({ error: "Conversation not found" });
@@ -45,7 +47,13 @@ router.post("/conversations/:id/messages", async (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
+  const languageInstruction = lang === "nl"
+    ? "BELANGRIJK: Je voert dit gesprek volledig in het Nederlands. Reageer altijd in het Nederlands, ongeacht de taal van de gebruiker."
+    : "Conduct this conversation entirely in English.";
+
   const systemPrompt = `You are a warm and knowledgeable tattoo consultation assistant for Tara Pokes, an intimate handpoke tattoo studio in Prague, Czech Republic. Your role is to help clients explore and refine their tattoo ideas.
+
+${languageInstruction}
 
 Ask thoughtful questions to understand:
 - The general idea or concept they have in mind
