@@ -1,0 +1,38 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "Avh9EIUuimIbvByhpi0Ob"
+uri = "file://artifacts/tara-pokes/src/assets/hero.png"
+type = "image"
+title = "Moody tattoo studio with candles"
+
+[[generated]]
+id = "RD3WNYCvRZnWdDiexF2eo"
+uri = "file://artifacts/tara-pokes/src/assets/gallery-1.png"
+type = "image"
+title = "Close-up handpoke tattoo process"
+
+[[generated]]
+id = "Utnallu0TVurUuY2Can0f"
+uri = "file://artifacts/tara-pokes/src/assets/gallery-2.png"
+type = "image"
+title = "Botanical flash sheet on parchment"
+
+[[generated]]
+id = "MbRMYmrSMV3C9GlANuerR"
+uri = "file://artifacts/tara-pokes/src/assets/gallery-3.png"
+type = "image"
+title = "Finished minimal handpoke tattoo"
+
+[[generated]]
+id = "MD6HRabQGJSTegKyiLX-J"
+uri = "file://artifacts/tara-pokes/src/assets/gallery-4.png"
+type = "image"
+title = "Tattoo artist dark workspace"
+
+[[generated]]
+id = "6MYvVROlKFM2Pzl0v1hfI"
+uri = "file://artifacts/tara-pokes/src/assets/gallery-5.png"
+type = "image"
+title = "Abstract ink and smoke"
