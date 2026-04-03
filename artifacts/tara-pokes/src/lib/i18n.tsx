@@ -14,7 +14,7 @@ const translations = {
       booking: "Afspraak",
     },
     hero: {
-      location: "Praag, Tsjechië",
+      location: "Uden, Nederland",
       tagline: "Delicate, botanische handpoke tattoos.",
       sub: "Stille ambacht, betekenisvolle intentie.",
       scroll: "Scroll zachtjes",
@@ -85,7 +85,7 @@ const translations = {
       email: "E-mail",
     },
     footer: {
-      location: "Praag, Tsjechië",
+      location: "Uden, Nederland",
       copy: "Alle rechten voorbehouden.",
     },
     chatbot: {
@@ -114,7 +114,7 @@ const translations = {
       booking: "Booking",
     },
     hero: {
-      location: "Prague, Czech Republic",
+      location: "Uden, Netherlands",
       tagline: "Delicate, botanical handpoke tattoos.",
       sub: "Quiet craft, meaningful intent.",
       scroll: "Scroll gently",
@@ -185,7 +185,7 @@ const translations = {
       email: "Email",
     },
     footer: {
-      location: "Prague, Czech Republic",
+      location: "Uden, Netherlands",
       copy: "All rights reserved.",
     },
     chatbot: {
