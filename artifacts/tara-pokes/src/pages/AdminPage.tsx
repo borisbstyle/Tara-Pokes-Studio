@@ -78,6 +78,9 @@ export default function AdminPage() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [daySlotStart, setDaySlotStart] = useState("10:00");
+  const [daySlotEnd, setDaySlotEnd] = useState("11:00");
+  const [addingDaySlot, setAddingDaySlot] = useState(false);
 
   async function verifyPin() {
     setCheckingPin(true);
@@ -426,9 +429,10 @@ export default function AdminPage() {
                           </button>
                         </div>
 
-                        {daySlots.length === 0 ? (
-                          <p className="px-5 py-8 text-sm text-foreground/35 font-light text-center">Geen tijdsloten op deze dag.</p>
-                        ) : (
+                        {daySlots.length === 0 && (
+                          <p className="px-5 pt-8 pb-4 text-sm text-foreground/35 font-light text-center">Geen tijdsloten op deze dag.</p>
+                        )}
+                        {daySlots.length > 0 && (
                           <div className="divide-y divide-border/20">
                             {daySlots.map((slot) => {
                               const booking = slot.bookings.find((b) => b.status !== "cancelled") ?? null;
@@ -535,15 +539,17 @@ export default function AdminPage() {
                                           ))}
                                         </div>
                                       )}
-                                      {/* Confirm / cancel */}
-                                      {booking.status === "pending" && (
-                                        <div className="flex gap-2 mt-2">
-                                          <button
-                                            onClick={() => updateBookingStatus(booking.id, "confirmed")}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"
-                                          >
-                                            <CheckCircle className="w-3.5 h-3.5" /> Bevestigen
-                                          </button>
+                                      {/* Confirm / cancel actions */}
+                                      {booking.status !== "cancelled" && (
+                                        <div className="flex gap-2 mt-2 flex-wrap">
+                                          {booking.status === "pending" && (
+                                            <button
+                                              onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                                              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"
+                                            >
+                                              <CheckCircle className="w-3.5 h-3.5" /> Bevestigen
+                                            </button>
+                                          )}
                                           <button
                                             onClick={() => updateBookingStatus(booking.id, "cancelled")}
                                             className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 text-red-600 text-xs rounded-sm hover:bg-red-100 transition-colors"
@@ -559,6 +565,44 @@ export default function AdminPage() {
                             })}
                           </div>
                         )}
+
+                        {/* Add slot footer */}
+                        <div className="px-5 py-4 border-t border-border/30 bg-background/50">
+                          <p className="text-xs uppercase tracking-wider text-foreground/40 mb-3">Tijdslot toevoegen</p>
+                          <div className="flex items-end gap-2 flex-wrap">
+                            <div>
+                              <label className="text-xs text-foreground/40 block mb-1">Van</label>
+                              <input type="time" value={daySlotStart} onChange={(e) => setDaySlotStart(e.target.value)}
+                                className="px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                            </div>
+                            <div>
+                              <label className="text-xs text-foreground/40 block mb-1">Tot</label>
+                              <input type="time" value={daySlotEnd} onChange={(e) => setDaySlotEnd(e.target.value)}
+                                className="px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                            </div>
+                            <button
+                              disabled={addingDaySlot || !daySlotStart || !daySlotEnd}
+                              onClick={async () => {
+                                if (!selectedDay || !daySlotStart || !daySlotEnd) return;
+                                setAddingDaySlot(true);
+                                try {
+                                  const res = await fetch(`${BASE}/api/booking/admin/slots`, {
+                                    method: "POST",
+                                    headers: authHeaders(pin),
+                                    body: JSON.stringify({ date: selectedDay, startTime: daySlotStart, endTime: daySlotEnd }),
+                                  });
+                                  if (res.ok) await loadSlots();
+                                } finally {
+                                  setAddingDaySlot(false);
+                                }
+                              }}
+                              className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground text-xs rounded-sm disabled:opacity-40"
+                            >
+                              {addingDaySlot ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                              Toevoegen
+                            </button>
+                          </div>
+                        </div>
                       </motion.div>
                     );
                   })()}
