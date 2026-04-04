@@ -26,6 +26,7 @@ export const bookings = pgTable("bookings", {
   phone: text("phone"),
   message: text("message"),
   status: text("status").default("pending").notNull(),
+  photoUrls: text("photo_urls").array(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

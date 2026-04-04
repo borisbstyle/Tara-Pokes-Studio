@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ToggleLeft, ToggleRight, Loader2, CheckCircle, XCircle, Clock, Calendar, User, Mail as MailIcon } from "lucide-react";
+import { Plus, Trash2, ToggleLeft, ToggleRight, Loader2, CheckCircle, XCircle, Clock, Calendar, User, Mail as MailIcon, Image, RefreshCw } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
@@ -26,6 +26,7 @@ interface Booking {
   phone: string | null;
   message: string | null;
   status: string;
+  photoUrls: string[] | null;
   createdAt: string;
 }
 
@@ -67,6 +68,9 @@ export default function AdminPage() {
 
   const [bookingsList, setBookingsList] = useState<BookingWithSlot[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [allSlots, setAllSlots] = useState<Slot[]>([]);
+  const [reassigning, setReassigning] = useState<number | null>(null);
+  const [reassignSlotId, setReassignSlotId] = useState<string>("");
 
   async function verifyPin() {
     setCheckingPin(true);
@@ -103,11 +107,27 @@ export default function AdminPage() {
   async function loadBookings() {
     setBookingsLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/booking/admin/bookings`, { headers: { Authorization: `Bearer ${pin}` } });
-      if (res.ok) setBookingsList(await res.json());
+      const [bRes, sRes] = await Promise.all([
+        fetch(`${BASE}/api/booking/admin/bookings`, { headers: { Authorization: `Bearer ${pin}` } }),
+        fetch(`${BASE}/api/booking/admin/slots`, { headers: { Authorization: `Bearer ${pin}` } }),
+      ]);
+      if (bRes.ok) setBookingsList(await bRes.json());
+      if (sRes.ok) setAllSlots(await sRes.json());
     } finally {
       setBookingsLoading(false);
     }
+  }
+
+  async function reassignSlot(bookingId: number) {
+    if (!reassignSlotId) return;
+    await fetch(`${BASE}/api/booking/admin/bookings/${bookingId}/slot`, {
+      method: "PATCH",
+      headers: authHeaders(pin),
+      body: JSON.stringify({ slotId: Number(reassignSlotId) }),
+    });
+    setReassigning(null);
+    setReassignSlotId("");
+    await loadBookings();
   }
 
   useEffect(() => {
@@ -426,24 +446,72 @@ export default function AdminPage() {
                           {booking.message && (
                             <p className="text-xs text-foreground/50 italic mt-1 max-w-md">"{booking.message}"</p>
                           )}
+                          {booking.photoUrls && booking.photoUrls.length > 0 && (
+                            <div className="flex items-center gap-2 mt-2 flex-wrap">
+                              <Image className="w-3.5 h-3.5 text-primary/50" />
+                              {booking.photoUrls.map((url, pi) => (
+                                <a key={pi} href={`${BASE}/api/storage/objects/serve?path=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer"
+                                  className="text-xs text-primary underline">
+                                  Foto {pi + 1}
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
-                        {booking.status === "pending" && (
-                          <div className="flex gap-2 flex-shrink-0">
+                        <div className="flex flex-col gap-2 flex-shrink-0 items-end">
+                          {booking.status === "pending" && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" /> Bevestigen
+                              </button>
+                              <button
+                                onClick={() => updateBookingStatus(booking.id, "cancelled")}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 text-red-600 text-xs rounded-sm hover:bg-red-100 transition-colors"
+                              >
+                                <XCircle className="w-3.5 h-3.5" /> Annuleren
+                              </button>
+                            </div>
+                          )}
+                          {/* Slot reassignment */}
+                          {reassigning === booking.id ? (
+                            <div className="flex gap-2 items-center mt-1">
+                              <select
+                                value={reassignSlotId}
+                                onChange={(e) => setReassignSlotId(e.target.value)}
+                                className="text-xs border border-border/60 rounded-sm px-2 py-1.5 bg-white focus:outline-none"
+                              >
+                                <option value="">— Kies slot —</option>
+                                {allSlots.filter((s) => s.isActive && s.id !== booking.slotId).map((s) => (
+                                  <option key={s.id} value={s.id}>
+                                    {new Date(s.date + "T00:00:00").toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" })} · {s.startTime}–{s.endTime}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => reassignSlot(booking.id)}
+                                disabled={!reassignSlotId}
+                                className="px-3 py-1.5 bg-primary text-primary-foreground text-xs rounded-sm disabled:opacity-40"
+                              >
+                                Opslaan
+                              </button>
+                              <button onClick={() => { setReassigning(null); setReassignSlotId(""); }}
+                                className="text-xs text-foreground/40 hover:text-foreground/70">
+                                Annuleren
+                              </button>
+                            </div>
+                          ) : (
                             <button
-                              onClick={() => updateBookingStatus(booking.id, "confirmed")}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"
+                              onClick={() => { setReassigning(booking.id); setReassignSlotId(""); }}
+                              className="flex items-center gap-1.5 text-xs text-foreground/40 hover:text-primary transition-colors mt-1"
                             >
-                              <CheckCircle className="w-3.5 h-3.5" /> Bevestigen
+                              <RefreshCw className="w-3 h-3" /> Verander tijdslot
                             </button>
-                            <button
-                              onClick={() => updateBookingStatus(booking.id, "cancelled")}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 text-red-600 text-xs rounded-sm hover:bg-red-100 transition-colors"
-                            >
-                              <XCircle className="w-3.5 h-3.5" /> Annuleren
-                            </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Clock, CheckCircle, Loader2, MessageCircle, Instagram, Mail } from "lucide-react";
+import { Calendar, Clock, CheckCircle, Loader2, MessageCircle, Instagram, ImagePlus, X } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
@@ -32,6 +32,27 @@ function groupByDate(slots: Slot[]) {
   return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
 }
 
+async function uploadPhoto(file: File): Promise<string | null> {
+  try {
+    const metaRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    });
+    if (!metaRes.ok) return null;
+    const { uploadURL, objectPath } = await metaRes.json();
+    const putRes = await fetch(uploadURL, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!putRes.ok) return null;
+    return objectPath as string;
+  } catch {
+    return null;
+  }
+}
+
 export default function BookingSection() {
   const { t, lang } = useLang();
   const [enabled, setEnabled] = useState(false);
@@ -45,8 +66,12 @@ export default function BookingSection() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`${BASE}/api/booking/status`)
@@ -73,10 +98,12 @@ export default function BookingSection() {
     emailPlaceholder: "E-mailadres",
     phonePlaceholder: "Telefoonnummer (optioneel)",
     messagePlaceholder: "Vertel iets over je tattooidee (optioneel)",
+    addPhotos: "Voeg inspiratiefoto's toe",
+    addPhotosHint: "Max. 5 foto's · JPG, PNG, WEBP",
     back: "Terug",
     confirm: "Afspraak Bevestigen",
+    uploading: "Foto's uploaden...",
     successTitle: "Aanvraag ontvangen!",
-    successBody: "Tara neemt zo snel mogelijk contact met je op om de afspraak te bevestigen.",
     successMessage: `Hi! ⟡\n₊ ⊹\n\nWat leuk dat je contact met me opneemt!\n\nOm een afspraak te maken heb ik de volgende informatie van je nodig:\n\n✣  Inspiratie foto's van wat je ongeveer getatoeëerd wilt hebben\n✣  De plek waar je de tattoo(s) graag wilt\n✣  Je voorkeur qua dag (maandag t/m vrijdag)\n\nIk probeer zo snel mogelijk op je berichtje te reageren.\n\nLiefs Tara ⟡\n₊ ⊹`,
     chosen: "Gekozen tijdslot:",
     errorRequired: "Naam en e-mailadres zijn verplicht.",
@@ -92,26 +119,59 @@ export default function BookingSection() {
     emailPlaceholder: "Email address",
     phonePlaceholder: "Phone number (optional)",
     messagePlaceholder: "Tell us a bit about your tattoo idea (optional)",
+    addPhotos: "Add inspiration photos",
+    addPhotosHint: "Max. 5 photos · JPG, PNG, WEBP",
     back: "Back",
     confirm: "Confirm Appointment",
+    uploading: "Uploading photos...",
     successTitle: "Request received!",
-    successBody: "Tara will get back to you as soon as possible to confirm your appointment.",
     successMessage: `Hi! ⟡\n₊ ⊹\n\nHow lovely that you reached out!\n\nTo make an appointment I'll need the following from you:\n\n✣  Inspiration photos of what you'd like tattooed\n✣  The spot where you'd like the tattoo(s)\n✣  Your preference for a day (Monday to Friday)\n\nI'll try to reply to your message as soon as possible.\n\nLove, Tara ⟡\n₊ ⊹`,
     chosen: "Chosen slot:",
     errorRequired: "Name and email address are required.",
     errorGeneric: "Something went wrong. Please try again.",
   };
 
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []).slice(0, 5);
+    setPhotos(files);
+    const previews = files.map((f) => URL.createObjectURL(f));
+    setPhotoPreviews(previews);
+  }
+
+  function removePhoto(index: number) {
+    const newPhotos = photos.filter((_, i) => i !== index);
+    const newPreviews = photoPreviews.filter((_, i) => i !== index);
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotos(newPhotos);
+    setPhotoPreviews(newPreviews);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !email.trim()) { setError(bl.errorRequired); return; }
     setError("");
     setSubmitting(true);
+
+    let photoUrls: string[] = [];
+    if (photos.length > 0) {
+      setUploading(true);
+      const results = await Promise.all(photos.map(uploadPhoto));
+      photoUrls = results.filter(Boolean) as string[];
+      setUploading(false);
+    }
+
     try {
       const res = await fetch(`${BASE}/api/booking/book`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotId: selectedSlot!.id, name, email, phone, message }),
+        body: JSON.stringify({
+          slotId: selectedSlot!.id,
+          name,
+          email,
+          phone,
+          message,
+          photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -233,16 +293,62 @@ export default function BookingSection() {
                   placeholder={bl.messagePlaceholder} rows={3} data-testid="input-booking-message"
                   className="w-full px-4 py-3 border border-border/50 bg-white text-sm text-foreground focus:outline-none focus:border-primary/50 rounded-sm transition-colors resize-none"
                 />
+
+                {/* Photo upload */}
+                <div className="border border-dashed border-border/60 rounded-sm p-4 bg-white">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                    data-testid="input-booking-photos"
+                  />
+                  {photoPreviews.length === 0 ? (
+                    <button type="button" onClick={() => fileInputRef.current?.click()}
+                      className="w-full flex flex-col items-center gap-2 py-3 text-foreground/45 hover:text-primary transition-colors">
+                      <ImagePlus className="w-6 h-6" />
+                      <span className="text-xs uppercase tracking-wider">{bl.addPhotos}</span>
+                      <span className="text-xs text-foreground/30">{bl.addPhotosHint}</span>
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-3">
+                        {photoPreviews.map((src, i) => (
+                          <div key={i} className="relative w-20 h-20 group">
+                            <img src={src} alt="" className="w-full h-full object-cover rounded-sm" />
+                            <button type="button" onClick={() => removePhoto(i)}
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                        {photos.length < 5 && (
+                          <button type="button" onClick={() => fileInputRef.current?.click()}
+                            className="w-20 h-20 border border-dashed border-border/50 rounded-sm flex items-center justify-center text-foreground/30 hover:text-primary hover:border-primary transition-colors">
+                            <ImagePlus className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {error && <p className="text-sm text-red-500">{error}</p>}
+
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => setStep("slots")}
                     className="px-6 py-3 border border-border/60 text-xs uppercase tracking-widest text-foreground/60 hover:border-foreground/40 transition-colors rounded-sm">
                     {bl.back}
                   </button>
-                  <button type="submit" disabled={submitting} data-testid="btn-booking-submit"
+                  <button type="submit" disabled={submitting || uploading} data-testid="btn-booking-submit"
                     className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-xs uppercase tracking-widest hover:bg-primary/90 disabled:opacity-50 transition-colors rounded-sm">
-                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                    {bl.confirm}
+                    {(submitting || uploading) ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> {uploading ? bl.uploading : ""}</>
+                    ) : (
+                      <><CheckCircle className="w-4 h-4" /> {bl.confirm}</>
+                    )}
                   </button>
                 </div>
               </form>
