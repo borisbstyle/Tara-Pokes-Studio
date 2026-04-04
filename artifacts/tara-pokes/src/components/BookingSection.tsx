@@ -77,6 +77,7 @@ export default function BookingSection() {
     confirm: "Afspraak Bevestigen",
     successTitle: "Aanvraag ontvangen!",
     successBody: "Tara neemt zo snel mogelijk contact met je op om de afspraak te bevestigen.",
+    successMessage: `Hi! ⟡\n₊ ⊹\n\nWat leuk dat je contact met me opneemt!\n\nOm een afspraak te maken heb ik de volgende informatie van je nodig:\n\n✣  Inspiratie foto's van wat je ongeveer getatoeëerd wilt hebben\n✣  De plek waar je de tattoo(s) graag wilt\n✣  Je voorkeur qua dag (maandag t/m vrijdag)\n\nIk probeer zo snel mogelijk op je berichtje te reageren.\n\nLiefs Tara ⟡\n₊ ⊹`,
     chosen: "Gekozen tijdslot:",
     errorRequired: "Naam en e-mailadres zijn verplicht.",
     errorGeneric: "Er ging iets mis. Probeer het opnieuw.",
@@ -95,6 +96,7 @@ export default function BookingSection() {
     confirm: "Confirm Appointment",
     successTitle: "Request received!",
     successBody: "Tara will get back to you as soon as possible to confirm your appointment.",
+    successMessage: `Hi! ⟡\n₊ ⊹\n\nHow lovely that you reached out!\n\nTo make an appointment I'll need the following from you:\n\n✣  Inspiration photos of what you'd like tattooed\n✣  The spot where you'd like the tattoo(s)\n✣  Your preference for a day (Monday to Friday)\n\nI'll try to reply to your message as soon as possible.\n\nLove, Tara ⟡\n₊ ⊹`,
     chosen: "Chosen slot:",
     errorRequired: "Name and email address are required.",
     errorGeneric: "Something went wrong. Please try again.",
@@ -143,11 +145,15 @@ export default function BookingSection() {
             <motion.div
               key="done"
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="text-center py-16 flex flex-col items-center gap-4"
+              className="py-12 flex flex-col items-center gap-6"
             >
-              <CheckCircle className="w-12 h-12 text-primary" />
-              <h3 className="text-2xl font-serif text-foreground/90">{bl.successTitle}</h3>
-              <p className="text-foreground/55 font-light max-w-sm">{bl.successBody}</p>
+              <CheckCircle className="w-10 h-10 text-primary" />
+              <h3 className="text-2xl font-serif text-foreground/90 text-center">{bl.successTitle}</h3>
+              <div className="bg-white border border-border/40 rounded-sm p-7 max-w-md w-full">
+                <p className="font-light text-foreground/70 text-sm leading-relaxed whitespace-pre-line text-center">
+                  {bl.successMessage}
+                </p>
+              </div>
             </motion.div>
           )}
 
