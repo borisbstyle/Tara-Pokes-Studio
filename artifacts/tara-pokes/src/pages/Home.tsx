@@ -9,6 +9,9 @@ import heroImg  from "@assets/IMG_7754_1775294371663.jpeg";
 import gal1     from "@assets/IMG_7753_1775294371663.jpeg";
 import gal2     from "@assets/IMG_7752_1775294371663.jpeg";
 import gal3     from "@assets/IMG_7751_1775294371663.jpeg";
+import gal4     from "@assets/IMG_7758_1775338449955.jpeg";
+import gal5     from "@assets/IMG_7757_1775338449956.jpeg";
+import gal6     from "@assets/IMG_7759_1775338449956.jpeg";
 import flashImg from "@assets/IMG_7749_1775294371663.jpeg";
 import quoteImg from "@assets/IMG_7748_1775294371663.jpeg";
 
@@ -127,7 +130,7 @@ export default function Home() {
           </motion.p>
         </motion.div>
 
-        {/* Masonry-style grid */}
+        {/* Masonry-style grid — row 1 */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6">
           <motion.div initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }} viewport={{ once: true }}
@@ -144,6 +147,21 @@ export default function Home() {
               <img src={gal3} alt="Bloemen tattoo" className="w-full h-full object-cover rounded-sm" />
             </motion.div>
           </div>
+        </div>
+
+        {/* Row 2 — three equal columns */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 mt-5 md:mt-6">
+          {[
+            { src: gal4, alt: "Zon tattoos op drie armen" },
+            { src: gal5, alt: "Geometrische tattoo" },
+            { src: gal6, alt: "Ster tattoo op elleboog" },
+          ].map(({ src, alt }, i) => (
+            <motion.div key={alt} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: i * 0.1 }} viewport={{ once: true }}
+              className="aspect-square overflow-hidden rounded-sm">
+              <img src={src} alt={alt} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
+            </motion.div>
+          ))}
         </div>
 
         <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
