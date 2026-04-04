@@ -189,6 +189,7 @@ export default function TattooChatbot() {
                       background: msg.role === "user" ? "hsl(var(--primary))" : "hsl(var(--card))",
                       color: msg.role === "user" ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))",
                       border: msg.role === "assistant" ? "1px solid hsl(var(--border))" : "none",
+                      whiteSpace: "pre-wrap",
                     }}
                   >
                     {msg.content || (
