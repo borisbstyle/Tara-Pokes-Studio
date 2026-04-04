@@ -59,8 +59,16 @@ export default function Home() {
       {/* ── HERO ── */}
       <section className="relative h-[100dvh] w-full flex items-end overflow-hidden">
         <motion.div className="absolute inset-0 w-full h-full" style={{ y: heroY, opacity: heroOpacity }}>
-          <img src={heroImg} alt="Tara aan het ontwerpen" className="w-full h-full object-cover object-top" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+          <video
+            autoPlay muted loop playsInline
+            poster={heroImg}
+            className="w-full h-full object-cover object-top"
+          >
+            <source src={`${import.meta.env.BASE_URL}hero.mov`} type="video/mp4" />
+            <source src={`${import.meta.env.BASE_URL}hero.mov`} type="video/quicktime" />
+            <img src={heroImg} alt="Tara aan het ontwerpen" className="w-full h-full object-cover object-top" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
         </motion.div>
 
         <div className="relative z-10 w-full px-6 md:px-12 lg:px-20 pb-20 md:pb-28 max-w-4xl">
