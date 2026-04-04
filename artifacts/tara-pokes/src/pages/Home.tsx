@@ -107,6 +107,8 @@ export default function Home() {
         </motion.div>
       </section>
 
+      <BookingSection />
+
       {/* ── PORTFOLIO ── */}
       <section id="werk" className="py-24 md:py-32 px-6 md:px-12 max-w-[1400px] mx-auto">
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}
@@ -304,9 +306,6 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
-
-      {/* ── BOOKING AGENDA (conditional via admin toggle) ── */}
-      <BookingSection />
 
       {/* ── FAQ ── */}
       <section id="faq" className="py-24 md:py-32 px-6 md:px-12 max-w-3xl mx-auto border-t border-border/30">
