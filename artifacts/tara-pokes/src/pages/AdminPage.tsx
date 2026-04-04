@@ -77,6 +77,7 @@ export default function AdminPage() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   async function verifyPin() {
     setCheckingPin(true);
@@ -204,7 +205,7 @@ export default function AdminPage() {
     await fetch(`${BASE}/api/booking/admin/bookings/${id}`, {
       method: "PATCH", headers: authHeaders(pin), body: JSON.stringify({ status }),
     });
-    await loadBookings();
+    await Promise.all([loadBookings(), loadSlots()]);
   }
 
   // ── Login screen ──────────────────────────────────────────────────────────
@@ -363,16 +364,20 @@ export default function AdminPage() {
                           : null;
                         const daySlots = dateStr ? (slotsByDate[dateStr] ?? []) : [];
                         const isToday = dateStr === todayStr;
-                        const isOtherMonth = !date;
+                        const isSelected = dateStr === selectedDay;
 
                         return (
                           <div
                             key={i}
-                            className={`min-h-[90px] p-1.5 border-b border-r border-border/20 ${isOtherMonth ? "bg-background/50" : ""} ${i % 7 === 6 ? "border-r-0" : ""}`}
+                            onClick={() => date && dateStr && setSelectedDay(isSelected ? null : dateStr)}
+                            className={`min-h-[90px] p-1.5 border-b border-r border-border/20 transition-colors
+                              ${!date ? "bg-background/50" : "cursor-pointer hover:bg-primary/5"}
+                              ${isSelected ? "bg-primary/8 ring-1 ring-inset ring-primary/30" : ""}
+                              ${i % 7 === 6 ? "border-r-0" : ""}`}
                           >
                             {date && (
                               <>
-                                <span className={`text-xs font-medium block mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground/50"}`}>
+                                <span className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground/50"}`}>
                                   {date.getDate()}
                                 </span>
                                 <div className="space-y-1">
@@ -385,6 +390,9 @@ export default function AdminPage() {
                                       </div>
                                     );
                                   })}
+                                  {daySlots.length === 0 && (
+                                    <span className="text-[10px] text-foreground/25 italic">Vrij</span>
+                                  )}
                                 </div>
                               </>
                             )}
@@ -394,6 +402,167 @@ export default function AdminPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Day detail panel */}
+                <AnimatePresence>
+                  {selectedDay && (() => {
+                    const daySlots = slotsByDate[selectedDay] ?? [];
+                    const dayLabel = new Date(selectedDay + "T00:00:00").toLocaleDateString("nl-NL", {
+                      weekday: "long", day: "numeric", month: "long", year: "numeric",
+                    });
+                    return (
+                      <motion.div
+                        key={selectedDay}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 8 }}
+                        className="mt-4 bg-white border border-border/40 rounded-sm overflow-hidden"
+                      >
+                        {/* Panel header */}
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-border/30">
+                          <h3 className="text-sm font-medium text-foreground/80 capitalize">{dayLabel}</h3>
+                          <button onClick={() => setSelectedDay(null)} className="text-foreground/35 hover:text-foreground/70 transition-colors">
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {daySlots.length === 0 ? (
+                          <p className="px-5 py-8 text-sm text-foreground/35 font-light text-center">Geen tijdsloten op deze dag.</p>
+                        ) : (
+                          <div className="divide-y divide-border/20">
+                            {daySlots.map((slot) => {
+                              const booking = slot.bookings.find((b) => b.status !== "cancelled") ?? null;
+                              const { bg } = slotColor(slot);
+                              const isEditingThis = reassigning === (booking?.id ?? -slot.id);
+
+                              return (
+                                <div key={slot.id} className="px-5 py-4">
+                                  {/* Slot time + status */}
+                                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`flex items-center gap-1.5 px-2.5 py-1 text-xs border rounded ${bg}`}>
+                                        <Clock className="w-3 h-3" />
+                                        {slot.startTime} – {slot.endTime}
+                                      </span>
+                                      {booking && (
+                                        <span className={`text-xs px-2 py-0.5 rounded border ${statusColor(booking.status)}`}>
+                                          {statusLabel(booking.status)}
+                                        </span>
+                                      )}
+                                      {!booking && (
+                                        <span className="text-xs text-foreground/35 font-light italic">Vrij slot</span>
+                                      )}
+                                    </div>
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => {
+                                          setReassigning(isEditingThis ? null : (booking?.id ?? -slot.id));
+                                          setEditDate(slot.date);
+                                          setEditStart(slot.startTime);
+                                          setEditEnd(slot.endTime);
+                                        }}
+                                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-border/50 rounded-sm text-foreground/55 hover:border-primary/50 hover:text-primary transition-colors"
+                                      >
+                                        <RefreshCw className="w-3 h-3" /> Wijzig tijdstip
+                                      </button>
+                                      <button
+                                        onClick={() => deleteSlot(slot.id)}
+                                        className="p-1.5 text-foreground/30 hover:text-red-500 transition-colors"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Inline time edit */}
+                                  {isEditingThis && (
+                                    <div className="mt-3 p-3 bg-background border border-border/30 rounded-sm space-y-2">
+                                      <div className="grid grid-cols-3 gap-2">
+                                        <div>
+                                          <label className="text-xs text-foreground/40 block mb-1">Datum</label>
+                                          <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
+                                            className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                                        </div>
+                                        <div>
+                                          <label className="text-xs text-foreground/40 block mb-1">Van</label>
+                                          <input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)}
+                                            className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                                        </div>
+                                        <div>
+                                          <label className="text-xs text-foreground/40 block mb-1">Tot</label>
+                                          <input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)}
+                                            className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <button onClick={async () => { await saveSlotEdit(slot.id); setSelectedDay(editDate); }}
+                                          disabled={!editDate || !editStart || !editEnd}
+                                          className="px-4 py-1.5 bg-primary text-primary-foreground text-xs rounded-sm disabled:opacity-40">
+                                          Opslaan
+                                        </button>
+                                        <button onClick={() => setReassigning(null)}
+                                          className="px-4 py-1.5 border border-border/50 text-xs text-foreground/50 rounded-sm hover:border-foreground/40">
+                                          Annuleren
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Booking details */}
+                                  {booking && (
+                                    <div className="mt-3 space-y-1.5">
+                                      <div className="flex items-center gap-2 text-sm text-foreground/75">
+                                        <User className="w-3.5 h-3.5 text-primary/50 flex-shrink-0" />
+                                        <span className="font-medium">{booking.name}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-xs text-foreground/50">
+                                        <MailIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                                        {booking.email}
+                                        {booking.phone && <span>· {booking.phone}</span>}
+                                      </div>
+                                      {booking.message && (
+                                        <p className="text-xs text-foreground/45 italic mt-1 leading-relaxed max-w-lg whitespace-pre-line">"{booking.message}"</p>
+                                      )}
+                                      {booking.photoUrls && booking.photoUrls.length > 0 && (
+                                        <div className="flex items-center gap-2 flex-wrap mt-1">
+                                          <Image className="w-3.5 h-3.5 text-primary/50" />
+                                          {booking.photoUrls.map((url, pi) => (
+                                            <a key={pi} href={`${BASE}/api/storage/objects/serve?path=${encodeURIComponent(url)}`}
+                                              target="_blank" rel="noreferrer" className="text-xs text-primary underline">
+                                              Foto {pi + 1}
+                                            </a>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {/* Confirm / cancel */}
+                                      {booking.status === "pending" && (
+                                        <div className="flex gap-2 mt-2">
+                                          <button
+                                            onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"
+                                          >
+                                            <CheckCircle className="w-3.5 h-3.5" /> Bevestigen
+                                          </button>
+                                          <button
+                                            onClick={() => updateBookingStatus(booking.id, "cancelled")}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 text-red-600 text-xs rounded-sm hover:bg-red-100 transition-colors"
+                                          >
+                                            <XCircle className="w-3.5 h-3.5" /> Annuleren
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })()}
+                </AnimatePresence>
               </motion.div>
             );
           })()}
