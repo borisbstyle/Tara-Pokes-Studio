@@ -180,9 +180,14 @@ router.post("/admin/slots", requireAdmin, async (req, res) => {
 
 router.patch("/admin/slots/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const { isActive } = req.body;
+  const { isActive, date, startTime, endTime } = req.body;
   const [slot] = await db.update(availableSlots)
-    .set({ isActive })
+    .set({
+      ...(typeof isActive === "boolean" ? { isActive } : {}),
+      ...(date !== undefined ? { date } : {}),
+      ...(startTime !== undefined ? { startTime } : {}),
+      ...(endTime !== undefined ? { endTime } : {}),
+    })
     .where(eq(availableSlots.id, id))
     .returning();
   res.json(slot);

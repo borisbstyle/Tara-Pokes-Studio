@@ -68,9 +68,10 @@ export default function AdminPage() {
 
   const [bookingsList, setBookingsList] = useState<BookingWithSlot[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
-  const [allSlots, setAllSlots] = useState<Slot[]>([]);
   const [reassigning, setReassigning] = useState<number | null>(null);
-  const [reassignSlotId, setReassignSlotId] = useState<string>("");
+  const [editDate, setEditDate] = useState("");
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
 
   async function verifyPin() {
     setCheckingPin(true);
@@ -107,26 +108,28 @@ export default function AdminPage() {
   async function loadBookings() {
     setBookingsLoading(true);
     try {
-      const [bRes, sRes] = await Promise.all([
-        fetch(`${BASE}/api/booking/admin/bookings`, { headers: { Authorization: `Bearer ${pin}` } }),
-        fetch(`${BASE}/api/booking/admin/slots`, { headers: { Authorization: `Bearer ${pin}` } }),
-      ]);
-      if (bRes.ok) setBookingsList(await bRes.json());
-      if (sRes.ok) setAllSlots(await sRes.json());
+      const res = await fetch(`${BASE}/api/booking/admin/bookings`, { headers: { Authorization: `Bearer ${pin}` } });
+      if (res.ok) setBookingsList(await res.json());
     } finally {
       setBookingsLoading(false);
     }
   }
 
-  async function reassignSlot(bookingId: number) {
-    if (!reassignSlotId) return;
-    await fetch(`${BASE}/api/booking/admin/bookings/${bookingId}/slot`, {
+  function startReassign(booking: BookingWithSlot) {
+    setReassigning(booking.booking.id);
+    setEditDate(booking.slot?.date ?? "");
+    setEditStart(booking.slot?.startTime ?? "");
+    setEditEnd(booking.slot?.endTime ?? "");
+  }
+
+  async function saveSlotEdit(slotId: number) {
+    if (!editDate || !editStart || !editEnd) return;
+    await fetch(`${BASE}/api/booking/admin/slots/${slotId}`, {
       method: "PATCH",
       headers: authHeaders(pin),
-      body: JSON.stringify({ slotId: Number(reassignSlotId) }),
+      body: JSON.stringify({ date: editDate, startTime: editStart, endTime: editEnd }),
     });
     setReassigning(null);
-    setReassignSlotId("");
     await loadBookings();
   }
 
@@ -476,39 +479,47 @@ export default function AdminPage() {
                               </button>
                             </div>
                           )}
-                          {/* Slot reassignment */}
-                          {reassigning === booking.id ? (
-                            <div className="flex gap-2 items-center mt-1">
-                              <select
-                                value={reassignSlotId}
-                                onChange={(e) => setReassignSlotId(e.target.value)}
-                                className="text-xs border border-border/60 rounded-sm px-2 py-1.5 bg-white focus:outline-none"
-                              >
-                                <option value="">— Kies slot —</option>
-                                {allSlots.filter((s) => s.isActive && s.id !== booking.slotId).map((s) => (
-                                  <option key={s.id} value={s.id}>
-                                    {new Date(s.date + "T00:00:00").toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" })} · {s.startTime}–{s.endTime}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                onClick={() => reassignSlot(booking.id)}
-                                disabled={!reassignSlotId}
-                                className="px-3 py-1.5 bg-primary text-primary-foreground text-xs rounded-sm disabled:opacity-40"
-                              >
-                                Opslaan
-                              </button>
-                              <button onClick={() => { setReassigning(null); setReassignSlotId(""); }}
-                                className="text-xs text-foreground/40 hover:text-foreground/70">
-                                Annuleren
-                              </button>
+                          {/* Slot time edit */}
+                          {reassigning === booking.id && slot ? (
+                            <div className="mt-2 space-y-2 border border-border/40 rounded-sm p-3 bg-background">
+                              <p className="text-xs uppercase tracking-wider text-foreground/40 mb-2">Wijzig tijdstip</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="text-xs text-foreground/40 block mb-1">Datum</label>
+                                  <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
+                                    className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-foreground/40 block mb-1">Van</label>
+                                  <input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)}
+                                    className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-foreground/40 block mb-1">Tot</label>
+                                  <input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)}
+                                    className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                                </div>
+                              </div>
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  onClick={() => saveSlotEdit(slot.id)}
+                                  disabled={!editDate || !editStart || !editEnd}
+                                  className="px-4 py-1.5 bg-primary text-primary-foreground text-xs rounded-sm disabled:opacity-40"
+                                >
+                                  Opslaan
+                                </button>
+                                <button onClick={() => setReassigning(null)}
+                                  className="px-4 py-1.5 border border-border/50 text-xs text-foreground/50 rounded-sm hover:border-foreground/40">
+                                  Annuleren
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <button
-                              onClick={() => { setReassigning(booking.id); setReassignSlotId(""); }}
+                              onClick={() => startReassign({ booking, slot })}
                               className="flex items-center gap-1.5 text-xs text-foreground/40 hover:text-primary transition-colors mt-1"
                             >
-                              <RefreshCw className="w-3 h-3" /> Verander tijdslot
+                              <RefreshCw className="w-3 h-3" /> Wijzig tijdstip
                             </button>
                           )}
                         </div>
