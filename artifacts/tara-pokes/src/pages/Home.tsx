@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
 import { ArrowRight, Instagram, Mail, MapPin, Plus, Minus, MessageCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 
+import logoImg    from "@/assets/logo.png";
 import heroImg    from "@assets/IMG_7754_1775294371663.jpeg";
 import aboutImg   from "@assets/IMG_7751_1775294371663.jpeg";
 import gallery1   from "@assets/IMG_7753_1775294371663.jpeg";
@@ -32,7 +33,7 @@ export default function Home() {
 
       {/* ── Navigation ── */}
       <nav className="absolute top-0 w-full z-40 px-6 py-6 md:px-12 flex justify-between items-center pointer-events-auto">
-        <div className="font-serif text-xl tracking-widest uppercase">{t.nav.brand}</div>
+        <img src={logoImg} alt="Tara Pokes logo" className="h-14 w-14 object-contain" />
         <div className="hidden md:flex items-center gap-8 text-sm font-light tracking-wider">
           <a href="#about"      className="hover:text-primary transition-colors" data-testid="link-about">{t.nav.about}</a>
           <a href="#philosophy" className="hover:text-primary transition-colors" data-testid="link-philosophy">{t.nav.philosophy}</a>
@@ -445,7 +446,7 @@ export default function Home() {
       {/* ── Footer ── */}
       <footer className="py-10 px-6 md:px-12 border-t border-border/30 bg-background">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="font-serif text-xl italic text-foreground/70 font-light">Tara Pokes</div>
+          <img src={logoImg} alt="Tara Pokes logo" className="h-12 w-12 object-contain opacity-80" />
           <div className="flex items-center gap-2 text-foreground/45 text-sm font-light">
             <MapPin className="w-3.5 h-3.5" />
             <span>{t.footer.location}</span>
