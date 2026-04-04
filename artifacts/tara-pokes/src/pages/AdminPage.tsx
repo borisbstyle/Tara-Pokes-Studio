@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ToggleLeft, ToggleRight, Loader2, CheckCircle, XCircle, Clock, Calendar, User, Mail as MailIcon, Image, RefreshCw } from "lucide-react";
+import { Plus, Trash2, ToggleLeft, ToggleRight, Loader2, CheckCircle, XCircle, Clock, Calendar, User, Mail as MailIcon, Image, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
@@ -35,7 +35,7 @@ interface BookingWithSlot {
   slot: Slot | null;
 }
 
-type Tab = "instellingen" | "slots" | "afspraken";
+type Tab = "instellingen" | "slots" | "afspraken" | "agenda";
 
 function statusColor(s: string) {
   if (s === "confirmed") return "text-green-700 bg-green-50 border-green-200";
@@ -72,6 +72,11 @@ export default function AdminPage() {
   const [editDate, setEditDate] = useState("");
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
+
+  const [calMonth, setCalMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   async function verifyPin() {
     setCheckingPin(true);
@@ -137,6 +142,7 @@ export default function AdminPage() {
     if (!pin) return;
     if (tab === "slots") loadSlots();
     if (tab === "afspraken") loadBookings();
+    if (tab === "agenda") loadSlots();
   }, [tab, pin]);
 
   async function toggleFeature() {
@@ -235,6 +241,7 @@ export default function AdminPage() {
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const tabs: { key: Tab; label: string }[] = [
     { key: "instellingen", label: "Instellingen" },
+    { key: "agenda", label: "Agenda" },
     { key: "slots", label: "Tijdslots" },
     { key: "afspraken", label: "Afspraken" },
   ];
@@ -274,6 +281,122 @@ export default function AdminPage() {
 
       <div className="max-w-4xl mx-auto px-6 py-10">
         <AnimatePresence mode="wait">
+
+          {/* ── Agenda ── */}
+          {tab === "agenda" && (() => {
+            const year = calMonth.getFullYear();
+            const month = calMonth.getMonth();
+            const monthName = calMonth.toLocaleDateString("nl-NL", { month: "long", year: "numeric" });
+
+            // Build grid: Mon-Sun, padded to full weeks
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            // Monday = 0 … Sunday = 6
+            const startPad = (firstDay.getDay() + 6) % 7;
+            const totalCells = Math.ceil((startPad + lastDay.getDate()) / 7) * 7;
+            const cells: (Date | null)[] = Array.from({ length: totalCells }, (_, i) => {
+              const d = i - startPad + 1;
+              if (d < 1 || d > lastDay.getDate()) return null;
+              return new Date(year, month, d);
+            });
+
+            const slotsByDate: Record<string, Slot[]> = {};
+            slots.forEach((s) => {
+              if (!slotsByDate[s.date]) slotsByDate[s.date] = [];
+              slotsByDate[s.date].push(s);
+            });
+
+            function slotColor(slot: Slot) {
+              const confirmed = slot.bookings.some((b) => b.status === "confirmed");
+              const pending = slot.bookings.some((b) => b.status === "pending");
+              if (confirmed) return { bg: "bg-green-100 border-green-300 text-green-800", dot: "bg-green-500" };
+              if (pending) return { bg: "bg-amber-100 border-amber-300 text-amber-800", dot: "bg-amber-500" };
+              return { bg: "bg-white border-border/40 text-foreground/60", dot: "bg-foreground/20" };
+            }
+
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+            return (
+              <motion.div key="agenda" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                {/* Header row */}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="font-serif text-2xl text-foreground/85">Agenda</h2>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setCalMonth(new Date(year, month - 1, 1))}
+                      className="p-2 border border-border/40 rounded-sm hover:border-primary/50 transition-colors">
+                      <ChevronLeft className="w-4 h-4 text-foreground/60" />
+                    </button>
+                    <span className="text-sm font-medium text-foreground/70 capitalize min-w-[140px] text-center">{monthName}</span>
+                    <button onClick={() => setCalMonth(new Date(year, month + 1, 1))}
+                      className="p-2 border border-border/40 rounded-sm hover:border-primary/50 transition-colors">
+                      <ChevronRight className="w-4 h-4 text-foreground/60" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="flex items-center gap-4 mb-5 text-xs text-foreground/55">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-500 inline-block" />Bevestigd</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />Aangevraagd</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-foreground/20 inline-block" />Vrij slot</span>
+                </div>
+
+                {slotsLoading ? (
+                  <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-foreground/30" /></div>
+                ) : (
+                  <div className="bg-white border border-border/40 rounded-sm overflow-hidden">
+                    {/* Day headers */}
+                    <div className="grid grid-cols-7 border-b border-border/30">
+                      {["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"].map((d) => (
+                        <div key={d} className="py-2 text-center text-xs uppercase tracking-wider text-foreground/40 font-medium">
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Day cells */}
+                    <div className="grid grid-cols-7">
+                      {cells.map((date, i) => {
+                        const dateStr = date
+                          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+                          : null;
+                        const daySlots = dateStr ? (slotsByDate[dateStr] ?? []) : [];
+                        const isToday = dateStr === todayStr;
+                        const isOtherMonth = !date;
+
+                        return (
+                          <div
+                            key={i}
+                            className={`min-h-[90px] p-1.5 border-b border-r border-border/20 ${isOtherMonth ? "bg-background/50" : ""} ${i % 7 === 6 ? "border-r-0" : ""}`}
+                          >
+                            {date && (
+                              <>
+                                <span className={`text-xs font-medium block mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground/50"}`}>
+                                  {date.getDate()}
+                                </span>
+                                <div className="space-y-1">
+                                  {daySlots.map((slot) => {
+                                    const { bg, dot } = slotColor(slot);
+                                    return (
+                                      <div key={slot.id} className={`flex items-center gap-1 px-1.5 py-1 rounded border text-[10px] leading-tight ${bg}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
+                                        <span className="truncate">{slot.startTime}–{slot.endTime}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            );
+          })()}
 
           {/* ── Instellingen ── */}
           {tab === "instellingen" && (
