@@ -97,14 +97,15 @@ export default function BookingSection() {
     namePlaceholder: "Naam",
     emailPlaceholder: "E-mailadres",
     phonePlaceholder: "Telefoonnummer (optioneel)",
-    messagePlaceholder: "Vertel iets over je tattooidee (optioneel)",
+    messagePlaceholder: "Jouw bericht...",
+    messageTemplate: `Wat leuk dat je contact met me opneemt!\n\nOm een afspraak te maken heb ik de volgende informatie van je nodig:\n\n✣  Inspiratie foto's van wat je ongeveer getatoeëerd wilt hebben\n✣  De plek waar je de tattoo(s) graag wilt\n✣  Je voorkeur qua dag (maandag t/m vrijdag)\n\n[Vul hier je antwoorden in]`,
     addPhotos: "Voeg inspiratiefoto's toe",
     addPhotosHint: "Max. 5 foto's · JPG, PNG, WEBP",
     back: "Terug",
     confirm: "Afspraak Bevestigen",
     uploading: "Foto's uploaden...",
     successTitle: "Aanvraag ontvangen!",
-    successMessage: `Hi! ⟡\n₊ ⊹\n\nWat leuk dat je contact met me opneemt!\n\nOm een afspraak te maken heb ik de volgende informatie van je nodig:\n\n✣  Inspiratie foto's van wat je ongeveer getatoeëerd wilt hebben\n✣  De plek waar je de tattoo(s) graag wilt\n✣  Je voorkeur qua dag (maandag t/m vrijdag)\n\nIk probeer zo snel mogelijk op je berichtje te reageren.\n\nLiefs Tara ⟡\n₊ ⊹`,
+    successBody: "Tara neemt zo snel mogelijk contact met je op.",
     chosen: "Gekozen tijdslot:",
     errorRequired: "Naam en e-mailadres zijn verplicht.",
     errorGeneric: "Er ging iets mis. Probeer het opnieuw.",
@@ -118,14 +119,15 @@ export default function BookingSection() {
     namePlaceholder: "Name",
     emailPlaceholder: "Email address",
     phonePlaceholder: "Phone number (optional)",
-    messagePlaceholder: "Tell us a bit about your tattoo idea (optional)",
+    messagePlaceholder: "Your message...",
+    messageTemplate: `How lovely that you reached out!\n\nTo make an appointment I'll need the following from you:\n\n✣  Inspiration photos of what you'd like tattooed\n✣  The spot where you'd like the tattoo(s)\n✣  Your preference for a day (Monday to Friday)\n\n[Fill in your answers here]`,
     addPhotos: "Add inspiration photos",
     addPhotosHint: "Max. 5 photos · JPG, PNG, WEBP",
     back: "Back",
     confirm: "Confirm Appointment",
     uploading: "Uploading photos...",
     successTitle: "Request received!",
-    successMessage: `Hi! ⟡\n₊ ⊹\n\nHow lovely that you reached out!\n\nTo make an appointment I'll need the following from you:\n\n✣  Inspiration photos of what you'd like tattooed\n✣  The spot where you'd like the tattoo(s)\n✣  Your preference for a day (Monday to Friday)\n\nI'll try to reply to your message as soon as possible.\n\nLove, Tara ⟡\n₊ ⊹`,
+    successBody: "Tara will get back to you as soon as possible.",
     chosen: "Chosen slot:",
     errorRequired: "Name and email address are required.",
     errorGeneric: "Something went wrong. Please try again.",
@@ -207,13 +209,9 @@ export default function BookingSection() {
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               className="py-12 flex flex-col items-center gap-6"
             >
-              <CheckCircle className="w-10 h-10 text-primary" />
+              <CheckCircle className="w-12 h-12 text-primary" />
               <h3 className="text-2xl font-serif text-foreground/90 text-center">{bl.successTitle}</h3>
-              <div className="bg-white border border-border/40 rounded-sm p-7 max-w-md w-full">
-                <p className="font-light text-foreground/70 text-sm leading-relaxed whitespace-pre-line text-center">
-                  {bl.successMessage}
-                </p>
-              </div>
+              <p className="text-foreground/55 font-light text-center max-w-sm">{bl.successBody}</p>
             </motion.div>
           )}
 
@@ -244,7 +242,7 @@ export default function BookingSection() {
                           <button
                             key={slot.id}
                             data-testid={`slot-${slot.id}`}
-                            onClick={() => { setSelectedSlot(slot); setStep("form"); }}
+                            onClick={() => { setSelectedSlot(slot); setMessage(bl.messageTemplate); setStep("form"); }}
                             className="flex items-center gap-2 px-4 py-3 border border-border/60 hover:border-primary hover:bg-primary/5 transition-all text-sm text-left rounded-sm group"
                           >
                             <Clock className="w-3.5 h-3.5 text-primary/50 flex-shrink-0" />
@@ -290,8 +288,8 @@ export default function BookingSection() {
                 />
                 <textarea
                   value={message} onChange={(e) => setMessage(e.target.value)}
-                  placeholder={bl.messagePlaceholder} rows={3} data-testid="input-booking-message"
-                  className="w-full px-4 py-3 border border-border/50 bg-white text-sm text-foreground focus:outline-none focus:border-primary/50 rounded-sm transition-colors resize-none"
+                  placeholder={bl.messagePlaceholder} rows={9} data-testid="input-booking-message"
+                  className="w-full px-4 py-3 border border-border/50 bg-white text-sm text-foreground focus:outline-none focus:border-primary/50 rounded-sm transition-colors resize-none leading-relaxed"
                 />
 
                 {/* Photo upload */}
