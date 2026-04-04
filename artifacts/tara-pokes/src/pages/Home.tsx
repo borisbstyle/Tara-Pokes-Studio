@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { ArrowRight, Instagram, Mail, MapPin, Plus, Minus, MessageCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n";
+import BookingSection from "@/components/BookingSection";
 
 import logoImg    from "@/assets/logo.png";
 import heroImg    from "@assets/IMG_7754_1775294371663.jpeg";
@@ -329,6 +330,9 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+      {/* ── Booking Section (shown only when enabled in admin) ── */}
+      <BookingSection />
 
       {/* ── FAQ ── */}
       <section id="faq" className="py-28 md:py-36 px-6 md:px-12 max-w-3xl mx-auto border-t border-border/30">
