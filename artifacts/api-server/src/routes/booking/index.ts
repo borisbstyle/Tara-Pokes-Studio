@@ -48,7 +48,7 @@ async function sendBookingNotification(booking: {
 
   try {
     await resend.emails.send({
-      from: "Tara Pokes <noreply@tarapokes.com>",
+      from: "Tara Pokes <onboarding@resend.dev>",
       to: ADMIN_EMAIL,
       subject: `Nieuwe afspraak aanvraag van ${booking.name}`,
       html: `
