@@ -251,6 +251,27 @@ export default function AdminPage() {
     await Promise.all([loadBookings(), loadSlots()]);
   }
 
+  async function confirmViaEmail(id: number) {
+    try {
+      const res = await fetch(`${BASE}/api/booking/admin/bookings/${id}/confirm-email`, {
+        method: "POST", headers: authHeaders(pin),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 503 && data.error === "not_configured") {
+        alert(`${data.title}\n\n${data.message}`);
+        return;
+      }
+      if (!res.ok) {
+        alert(`Bevestigingsmail kon niet verstuurd worden:\n\n${data.message ?? data.error ?? "Onbekende fout"}`);
+        return;
+      }
+      alert("Bevestigingsmail verstuurd ✓");
+      await Promise.all([loadBookings(), loadSlots()]);
+    } catch (err) {
+      alert(`Er ging iets mis: ${err}`);
+    }
+  }
+
   // ── Login screen ──────────────────────────────────────────────────────────
   if (!pin) {
     return (
@@ -594,6 +615,14 @@ export default function AdminPage() {
                                           )}
                                           {booking.status === "pending" && (
                                             <button
+                                              onClick={() => confirmViaEmail(booking.id)}
+                                              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-sm hover:bg-blue-100 transition-colors"
+                                            >
+                                              <MailIcon className="w-3.5 h-3.5" /> Bevestig via e-mail
+                                            </button>
+                                          )}
+                                          {booking.status === "pending" && (
+                                            <button
                                               onClick={() => updateBookingStatus(booking.id, "confirmed")}
                                               className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"
                                             >
@@ -861,6 +890,12 @@ export default function AdminPage() {
                                   <MessageCircle className="w-3.5 h-3.5" /> Bevestig via WhatsApp
                                 </a>
                               )}
+                              <button
+                                onClick={() => confirmViaEmail(booking.id)}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-sm hover:bg-blue-100 transition-colors"
+                              >
+                                <MailIcon className="w-3.5 h-3.5" /> Bevestig via e-mail
+                              </button>
                               <button
                                 onClick={() => updateBookingStatus(booking.id, "confirmed")}
                                 className="flex items-center gap-1.5 px-3 py-2 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"

@@ -221,6 +221,106 @@ router.patch("/admin/bookings/:id", requireAdmin, async (req, res) => {
   res.json(booking);
 });
 
+/** POST /api/booking/admin/bookings/:id/confirm-email — confirm via Brevo email */
+router.post("/admin/bookings/:id/confirm-email", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+  if (!apiKey || !senderEmail) {
+    res.status(503).json({
+      error: "not_configured",
+      title: "E-mail bevestiging is nog niet ingesteld",
+      message: [
+        "Om automatisch bevestigings-e-mails te kunnen sturen heb je een gratis Brevo account nodig.",
+        "",
+        "Stappen:",
+        "1. Maak een gratis account op brevo.com (300 mails/dag gratis)",
+        "2. Ga naar 'Senders, Domains & Dedicated IPs' → 'Senders' → 'Add a sender'",
+        "   Vul in: naam = 'Tara Pokes', e-mail = bv. tara@tarapokes.com of noreply@tarapokes.com",
+        "3. Klik op de verificatielink die Brevo naar dat adres stuurt",
+        "4. Ga naar 'SMTP & API' → 'API Keys' → 'Generate a new API key' → kopieer 'm",
+        "5. Voeg in Replit twee secrets toe:",
+        "      BREVO_API_KEY      = de gegenereerde API key",
+        "      BREVO_SENDER_EMAIL = het geverifieerde verzenderadres",
+        "6. Herstart de server — daarna werkt de knop.",
+      ].join("\n"),
+    });
+    return;
+  }
+
+  const [row] = await db.select({
+    booking: bookings,
+    slot: availableSlots,
+  }).from(bookings)
+    .leftJoin(availableSlots, eq(bookings.slotId, availableSlots.id))
+    .where(eq(bookings.id, id));
+
+  if (!row || !row.booking) {
+    res.status(404).json({ error: "Booking not found" });
+    return;
+  }
+  const { booking, slot } = row;
+
+  const firstName = booking.name.split(" ")[0] || booking.name;
+  const dateStr = slot ? formatDateNL(slot.date) : "";
+  const timeStr = slot ? `${slot.startTime} – ${slot.endTime}` : "";
+
+  const html = `
+    <div style="font-family: Georgia, serif; max-width: 600px; color: #333; padding: 32px; line-height: 1.6;">
+      <h2 style="font-weight: normal; font-size: 24px; margin-bottom: 16px; color: #1a1a1a;">
+        Je afspraak is bevestigd 🌿
+      </h2>
+      <p>Hi ${firstName},</p>
+      <p>Wat leuk dat je een afspraak hebt geboekt bij <strong>Tara Pokes</strong>. Je afspraak is bevestigd:</p>
+      ${slot ? `
+        <div style="background: #f6f5f0; border-left: 3px solid #87a878; padding: 16px 20px; margin: 20px 0; border-radius: 2px;">
+          <p style="margin: 4px 0;"><strong>📅 Datum:</strong> ${dateStr}</p>
+          <p style="margin: 4px 0;"><strong>⏰ Tijd:</strong> ${timeStr}</p>
+          <p style="margin: 4px 0;"><strong>📍 Locatie:</strong> Uden, Nederland</p>
+        </div>
+      ` : ""}
+      <p>Het exacte adres en eventuele voorbereidingstips stuur ik je binnenkort.</p>
+      <p>Heb je nog vragen? App me dan gerust via WhatsApp.</p>
+      <p style="margin-top: 32px;">Tot snel,<br/><em>Tara</em></p>
+      <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0 16px;" />
+      <p style="color: #999; font-size: 12px;">
+        Dit is een automatische bevestigings-e-mail van tarapokes.com — niet beantwoorden.
+      </p>
+    </div>
+  `;
+
+  try {
+    const r = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "api-key": apiKey,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: "Tara Pokes", email: senderEmail },
+        to: [{ email: booking.email, name: booking.name }],
+        subject: "Je afspraak bij Tara Pokes is bevestigd 🌿",
+        htmlContent: html,
+      }),
+    });
+
+    if (!r.ok) {
+      const text = await r.text();
+      console.error("Brevo send failed:", r.status, text);
+      res.status(502).json({ error: "send_failed", message: `Brevo gaf foutmelding: ${text.slice(0, 200)}` });
+      return;
+    }
+
+    await db.update(bookings).set({ status: "confirmed" }).where(eq(bookings.id, id));
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Brevo error:", err);
+    res.status(500).json({ error: "send_failed", message: String(err) });
+  }
+});
+
 /** PATCH /api/booking/admin/bookings/:id/slot — reassign to a different slot */
 router.patch("/admin/bookings/:id/slot", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
