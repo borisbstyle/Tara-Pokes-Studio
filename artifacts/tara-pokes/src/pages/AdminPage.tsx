@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ToggleLeft, ToggleRight, Loader2, CheckCircle, XCircle, Clock, Calendar, User, Mail as MailIcon, Image, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, ToggleLeft, ToggleRight, Loader2, CheckCircle, XCircle, Clock, Calendar, User, Mail as MailIcon, Image, RefreshCw, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
@@ -46,6 +46,46 @@ function statusLabel(s: string) {
   if (s === "confirmed") return "Bevestigd";
   if (s === "cancelled") return "Geannuleerd";
   return "In afwachting";
+}
+
+/** Build a wa.me URL with a prefilled Dutch confirmation message. */
+function whatsappConfirmUrl(
+  booking: { name: string; phone: string | null },
+  slot: { date: string; startTime: string; endTime: string } | null,
+): string | null {
+  if (!booking.phone) return null;
+  const digits = booking.phone.replace(/\D/g, "");
+  const intl = digits.startsWith("00")
+    ? digits.slice(2)
+    : digits.startsWith("0")
+      ? "31" + digits.slice(1)
+      : digits.startsWith("31")
+        ? digits
+        : digits;
+  const firstName = booking.name.split(" ")[0] || booking.name;
+  const dateStr = slot
+    ? new Date(slot.date + "T00:00:00").toLocaleDateString("nl-NL", {
+        weekday: "long", day: "numeric", month: "long",
+      })
+    : "";
+  const timeStr = slot ? `${slot.startTime} – ${slot.endTime}` : "";
+  const lines = [
+    `Hi ${firstName}!`,
+    "",
+    "Wat leuk dat je een afspraak hebt geboekt bij Tara Pokes 🌿",
+    "Je afspraak is bevestigd:",
+    "",
+    slot ? `📅 ${dateStr}` : "",
+    slot ? `⏰ ${timeStr}` : "",
+    "📍 Uden, Nederland",
+    "",
+    "Het exacte adres en eventuele voorbereidingstips stuur ik je binnenkort.",
+    "Laat het me weten als je nog vragen hebt!",
+    "",
+    "Tot snel,",
+    "Tara",
+  ].filter(Boolean);
+  return `https://wa.me/${intl}?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
 export default function AdminPage() {
@@ -542,6 +582,16 @@ export default function AdminPage() {
                                       {/* Confirm / cancel actions */}
                                       {booking.status !== "cancelled" && (
                                         <div className="flex gap-2 mt-2 flex-wrap">
+                                          {booking.status === "pending" && booking.phone && (
+                                            <a
+                                              href={whatsappConfirmUrl(booking, slot)!}
+                                              target="_blank" rel="noreferrer"
+                                              onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] text-xs rounded-sm hover:bg-[#25D366]/20 transition-colors"
+                                            >
+                                              <MessageCircle className="w-3.5 h-3.5" /> Bevestig via WhatsApp
+                                            </a>
+                                          )}
                                           {booking.status === "pending" && (
                                             <button
                                               onClick={() => updateBookingStatus(booking.id, "confirmed")}
@@ -800,7 +850,17 @@ export default function AdminPage() {
 
                         <div className="flex flex-col gap-2 flex-shrink-0 items-end">
                           {booking.status === "pending" && (
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap justify-end">
+                              {booking.phone && (
+                                <a
+                                  href={whatsappConfirmUrl(booking, slot)!}
+                                  target="_blank" rel="noreferrer"
+                                  onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                                  className="flex items-center gap-1.5 px-3 py-2 bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] text-xs rounded-sm hover:bg-[#25D366]/20 transition-colors"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" /> Bevestig via WhatsApp
+                                </a>
+                              )}
                               <button
                                 onClick={() => updateBookingStatus(booking.id, "confirmed")}
                                 className="flex items-center gap-1.5 px-3 py-2 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"
