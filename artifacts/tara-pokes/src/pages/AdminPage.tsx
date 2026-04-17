@@ -88,6 +88,73 @@ function whatsappConfirmUrl(
   return `https://wa.me/${intl}?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
+function intlPhone(phone: string | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("00")) return digits.slice(2);
+  if (digits.startsWith("0")) return "31" + digits.slice(1);
+  if (digits.startsWith("31")) return digits;
+  return digits;
+}
+
+/** Build a wa.me URL with a prefilled cancellation message. */
+function whatsappCancelUrl(
+  booking: { name: string; phone: string | null },
+  slot: { date: string; startTime: string; endTime: string } | null,
+): string | null {
+  const intl = intlPhone(booking.phone);
+  if (!intl) return null;
+  const firstName = booking.name.split(" ")[0] || booking.name;
+  const dateStr = slot
+    ? new Date(slot.date + "T00:00:00").toLocaleDateString("nl-NL", {
+        weekday: "long", day: "numeric", month: "long",
+      })
+    : "";
+  const timeStr = slot ? `${slot.startTime} – ${slot.endTime}` : "";
+  const lines = [
+    `Hi ${firstName},`,
+    "",
+    "Helaas moet ik je afspraak bij Tara Pokes annuleren:",
+    "",
+    slot ? `📅 ${dateStr}` : "",
+    slot ? `⏰ ${timeStr}` : "",
+    "",
+    "Mijn excuses voor het ongemak. Laat me weten wanneer je een nieuwe afspraak wil inplannen, dan zoeken we samen een nieuw moment.",
+    "",
+    "Lieve groet,",
+    "Tara",
+  ].filter(Boolean);
+  return `https://wa.me/${intl}?text=${encodeURIComponent(lines.join("\n"))}`;
+}
+
+/** Build a wa.me URL with a prefilled reschedule message. */
+function whatsappRescheduleUrl(
+  booking: { name: string; phone: string | null },
+  newSlot: { date: string; startTime: string; endTime: string },
+): string | null {
+  const intl = intlPhone(booking.phone);
+  if (!intl) return null;
+  const firstName = booking.name.split(" ")[0] || booking.name;
+  const dateStr = new Date(newSlot.date + "T00:00:00").toLocaleDateString("nl-NL", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+  const lines = [
+    `Hi ${firstName},`,
+    "",
+    "Je afspraak bij Tara Pokes is verplaatst naar een nieuw tijdstip:",
+    "",
+    `📅 ${dateStr}`,
+    `⏰ ${newSlot.startTime} – ${newSlot.endTime}`,
+    "📍 Uden, Nederland",
+    "",
+    "Laat me weten of dit nieuwe moment voor je werkt!",
+    "",
+    "Lieve groet,",
+    "Tara",
+  ];
+  return `https://wa.me/${intl}?text=${encodeURIComponent(lines.join("\n"))}`;
+}
+
 export default function AdminPage() {
   const [pin, setPin] = useState("");
   const [pinInput, setPinInput] = useState("");
@@ -560,12 +627,26 @@ export default function AdminPage() {
                                             className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
                                         </div>
                                       </div>
-                                      <div className="flex gap-2">
+                                      <div className="flex gap-2 flex-wrap">
                                         <button onClick={async () => { await saveSlotEdit(slot.id); setSelectedDay(editDate); }}
                                           disabled={!editDate || !editStart || !editEnd}
                                           className="px-4 py-1.5 bg-primary text-primary-foreground text-xs rounded-sm disabled:opacity-40">
                                           Opslaan
                                         </button>
+                                        {(() => {
+                                          const b = slot.bookings.find((x) => x.status === "confirmed");
+                                          if (!b || !b.phone || !editDate || !editStart || !editEnd) return null;
+                                          return (
+                                            <a
+                                              href={whatsappRescheduleUrl(b, { date: editDate, startTime: editStart, endTime: editEnd })!}
+                                              target="_blank" rel="noreferrer"
+                                              onClick={async () => { await saveSlotEdit(slot.id); setSelectedDay(editDate); }}
+                                              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] text-xs rounded-sm hover:bg-[#25D366]/20 transition-colors"
+                                            >
+                                              <MessageCircle className="w-3.5 h-3.5" /> Opslaan + WhatsApp melding
+                                            </a>
+                                          );
+                                        })()}
                                         <button onClick={() => setReassigning(null)}
                                           className="px-4 py-1.5 border border-border/50 text-xs text-foreground/50 rounded-sm hover:border-foreground/40">
                                           Annuleren
@@ -628,6 +709,16 @@ export default function AdminPage() {
                                             >
                                               <CheckCircle className="w-3.5 h-3.5" /> Bevestigen
                                             </button>
+                                          )}
+                                          {booking.status === "confirmed" && booking.phone && (
+                                            <a
+                                              href={whatsappCancelUrl(booking, slot)!}
+                                              target="_blank" rel="noreferrer"
+                                              onClick={() => updateBookingStatus(booking.id, "cancelled")}
+                                              className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 text-orange-700 text-xs rounded-sm hover:bg-orange-100 transition-colors"
+                                            >
+                                              <MessageCircle className="w-3.5 h-3.5" /> Annuleer via WhatsApp
+                                            </a>
                                           )}
                                           <button
                                             onClick={() => updateBookingStatus(booking.id, "cancelled")}
@@ -902,6 +993,16 @@ export default function AdminPage() {
                               >
                                 <CheckCircle className="w-3.5 h-3.5" /> Bevestigen
                               </button>
+                              {booking.status === "confirmed" && booking.phone && (
+                                <a
+                                  href={whatsappCancelUrl(booking, slot)!}
+                                  target="_blank" rel="noreferrer"
+                                  onClick={() => updateBookingStatus(booking.id, "cancelled")}
+                                  className="flex items-center gap-1.5 px-3 py-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs rounded-sm hover:bg-orange-100 transition-colors"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" /> Annuleer via WhatsApp
+                                </a>
+                              )}
                               <button
                                 onClick={() => updateBookingStatus(booking.id, "cancelled")}
                                 className="flex items-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 text-red-600 text-xs rounded-sm hover:bg-red-100 transition-colors"
@@ -931,7 +1032,7 @@ export default function AdminPage() {
                                     className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
                                 </div>
                               </div>
-                              <div className="flex gap-2 pt-1">
+                              <div className="flex gap-2 pt-1 flex-wrap">
                                 <button
                                   onClick={() => saveSlotEdit(slot.id)}
                                   disabled={!editDate || !editStart || !editEnd}
@@ -939,6 +1040,16 @@ export default function AdminPage() {
                                 >
                                   Opslaan
                                 </button>
+                                {booking.status === "confirmed" && booking.phone && editDate && editStart && editEnd && (
+                                  <a
+                                    href={whatsappRescheduleUrl(booking, { date: editDate, startTime: editStart, endTime: editEnd })!}
+                                    target="_blank" rel="noreferrer"
+                                    onClick={() => saveSlotEdit(slot.id)}
+                                    className="flex items-center gap-1.5 px-4 py-1.5 bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] text-xs rounded-sm hover:bg-[#25D366]/20 transition-colors"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5" /> Opslaan + WhatsApp melding
+                                  </a>
+                                )}
                                 <button onClick={() => setReassigning(null)}
                                   className="px-4 py-1.5 border border-border/50 text-xs text-foreground/50 rounded-sm hover:border-foreground/40">
                                   Annuleren
