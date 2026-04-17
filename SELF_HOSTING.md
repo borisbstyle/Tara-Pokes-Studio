@@ -86,27 +86,30 @@ code op `SELF-HOSTING` — overal waar dat staat is uitleg gegeven.
 
 ### a) Object-storage voor foto-uploads
 
-**Bestand:** `artifacts/api-server/src/lib/objectStorage.ts`
+**Goed nieuws:** dit is nu volledig configureerbaar via één env-var. De server
+kan kiezen tussen Replit-storage of lokale schijf zonder code-aanpassingen.
 
-Deze service praat met Replit's interne object-storage sidecar (op poort 1106).
-Buiten Replit bestaat die niet en zal NIETS hier werken. Je hebt twee opties:
+In je `.env` op de Pi zet je:
 
-**Optie A — Lokale schijf** (simpelst):
+```bash
+STORAGE_BACKEND=local
+LOCAL_STORAGE_DIR=/home/pi/tara-pokes/uploads
+PUBLIC_API_BASE_URL=https://tarapokes.nl
+```
 
-- Sla foto's op in `/home/pi/tara-pokes/uploads/<uuid>.<ext>`
-- `getObjectEntityUploadURL()` geeft een eigen URL terug zoals
-  `${API_BASE}/api/storage/upload/<uuid>` waar je een PUT op accepteert
-- `getObjectEntityFile()` / `downloadObject()` lezen direct van disk
-- **Vergeet niet** dagelijkse backup van die map
+De API-server slaat foto's dan op als:
 
-**Optie B — S3-compatibel** (MinIO self-hosted, AWS S3, Cloudflare R2):
+```
+/home/pi/tara-pokes/uploads/<uuid>           ← de bytes zelf
+/home/pi/tara-pokes/uploads/<uuid>.json      ← metadata (content-type)
+```
 
-- Vervang `@google-cloud/storage` door `@aws-sdk/client-s3`
-- `getObjectEntityUploadURL()` genereert een presigned PUT URL
-- `downloadObject()` wordt een S3 GetObject stream
+De frontend, database en bestaande bookings blijven exact hetzelfde werken —
+het pad in de DB (`/objects/<uuid>`) is identiek voor beide backends.
 
-> De rest van de codebase praat alleen via de `ObjectStorageService` class.
-> Als je dezelfde public methods behoudt, hoeft elders **niets** aangepast.
+**Wil je liever S3-compatibel** (MinIO self-hosted, AWS S3, Cloudflare R2)?
+Voeg dan een derde backend toe in `artifacts/api-server/src/lib/storage/`
+(zelfde patroon als `localBackend.ts`) en breid de factory in `index.ts` uit.
 
 ### b) E-mail (Brevo)
 
@@ -145,11 +148,10 @@ RESEND_API_KEY=re_...
 PORT=8080
 NODE_ENV=production
 
-# Object storage — alleen invullen als je Optie B (S3) gebruikt
-# AWS_ACCESS_KEY_ID=...
-# AWS_SECRET_ACCESS_KEY=...
-# S3_BUCKET=tarapokes-photos
-# S3_ENDPOINT=https://s3.eu-central-1.amazonaws.com
+# Object storage
+STORAGE_BACKEND=local
+LOCAL_STORAGE_DIR=/home/pi/tara-pokes/uploads
+PUBLIC_API_BASE_URL=https://tarapokes.nl
 ```
 
 > **Heel belangrijk:** zet `.env` in je `.gitignore` zodat je secrets nooit op

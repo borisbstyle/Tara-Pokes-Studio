@@ -1,29 +1,10 @@
 // ============================================================================
-// ⚠️  SELF-HOSTING TODO — vervang deze service als je buiten Replit draait
+// REPLIT-SPECIFIEK — gebruikt door lib/storage/replitBackend.ts
 // ----------------------------------------------------------------------------
-// Deze hele file gebruikt Replit's interne object-storage sidecar
-// (REPLIT_SIDECAR_ENDPOINT op poort 1106) om credentials op te halen voor een
-// Google Cloud Storage bucket. Op een Raspberry Pi / VPS bestaat die sidecar
-// niet en zal NIETS hier werken.
-//
-// Twee aanbevolen vervangingen:
-//
-//   OPTIE A — Lokale schijf (simpelst voor self-hosting):
-//     - Sla foto's op in bv. /home/pi/tara-pokes/uploads/<uuid>.<ext>
-//     - getObjectEntityUploadURL() → geef een eigen URL terug zoals
-//       `${API_BASE}/api/storage/upload/<uuid>` waar je een PUT op accepteert
-//     - getObjectEntityFile() / downloadObject() → lees gewoon van disk
-//     - Vergeet niet dagelijkse backup van die map (rsync naar externe schijf)
-//
-//   OPTIE B — S3-compatibel (MinIO self-hosted, of AWS/Cloudflare R2):
-//     - Vervang de @google-cloud/storage Storage client door @aws-sdk/client-s3
-//     - getObjectEntityUploadURL() → genereer een presigned PUT URL
-//     - downloadObject() → S3 GetObject stream
-//
-// De rest van de codebase praat alleen via deze ObjectStorageService class —
-// als de publieke methods (getObjectEntityUploadURL, normalizeObjectEntityPath,
-// getObjectEntityFile, downloadObject) dezelfde shape behouden, hoeft elders
-// NIETS aangepast te worden.
+// Deze service praat met Replit's interne object-storage sidecar (poort 1106).
+// Werkt ALLEEN binnen Replit. Voor self-hosting gebruik je niet deze file
+// rechtstreeks — zet in plaats daarvan de env var STORAGE_BACKEND=local.
+// Zie SELF_HOSTING.md en lib/storage/ voor de abstractie + lokale backend.
 // ============================================================================
 
 import { Storage, File } from "@google-cloud/storage";

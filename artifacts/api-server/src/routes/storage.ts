@@ -1,24 +1,25 @@
 // ============================================================================
-// ⚠️  SELF-HOSTING TODO — foto-upload endpoints
-// ----------------------------------------------------------------------------
-// Deze routes leunen volledig op ../lib/objectStorage.ts (Replit object-storage).
-// Voor self-hosting op een Pi/VPS hoef je deze file niet te herschrijven —
-// pas alleen objectStorage.ts aan zodat:
-//   - POST /storage/uploads/request-url → een eigen lokale upload-URL teruggeeft
-//   - GET  /storage/objects/serve       → vanaf disk (of MinIO/S3) leest
-//
-// Eventueel wil je hieronder een extra route toevoegen voor de daadwerkelijke
-// PUT-upload als je Optie A (lokale schijf) gebruikt — bijvoorbeeld:
-//   router.put("/storage/upload/:id", express.raw({ limit: "20mb" }), …)
-// die het bestand naar /home/pi/tara-pokes/uploads/<id> schrijft.
+// Storage routes — leunen op de StorageBackend abstractie in lib/storage.
+// Werken identiek voor zowel de Replit- als de lokale-schijf-backend.
+// Switch via env var STORAGE_BACKEND (zie lib/storage/index.ts en SELF_HOSTING.md).
 // ============================================================================
 
 import { Router, type IRouter, type Request, type Response } from "express";
-import { Readable } from "stream";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import {
+  getStorage,
+  LocalStorageBackend,
+  ObjectNotFoundError,
+} from "../lib/storage";
 
 const router: IRouter = Router();
-const objectStorageService = new ObjectStorageService();
+
+/** Bouw een API base URL op basis van het inkomende verzoek (fallback voor lokale backend). */
+function deriveApiBase(req: Request): string {
+  if (process.env.PUBLIC_API_BASE_URL) return process.env.PUBLIC_API_BASE_URL;
+  const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "http";
+  const host = (req.headers["x-forwarded-host"] as string) || req.get("host") || "localhost";
+  return `${proto}://${host}`;
+}
 
 /**
  * POST /storage/uploads/request-url
@@ -26,16 +27,18 @@ const objectStorageService = new ObjectStorageService();
  * Returns: { uploadURL, objectPath }
  */
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
-  const { name, size, contentType } = req.body ?? {};
+  const { name, contentType } = req.body ?? {};
   if (!name || !contentType) {
     res.status(400).json({ error: "name and contentType are required" });
     return;
   }
 
   try {
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
-    res.json({ uploadURL, objectPath });
+    const target = await getStorage().createUpload({
+      contentType,
+      apiBaseUrl: deriveApiBase(req),
+    });
+    res.json(target);
   } catch (error) {
     console.error("Error generating upload URL:", error);
     res.status(500).json({ error: "Failed to generate upload URL" });
@@ -43,8 +46,32 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
 });
 
 /**
- * GET /storage/objects/serve?path=...
- * Serve private object entities via query param.
+ * PUT /storage/local-upload/:id
+ * Ontvangt het ruwe bestand voor de LocalStorageBackend. Geeft 404 als de
+ * actieve backend niet de lokale is (bv. op Replit zelf).
+ */
+router.put("/storage/local-upload/:id", async (req: Request, res: Response) => {
+  const storage = getStorage();
+  if (!(storage instanceof LocalStorageBackend)) {
+    res.status(404).json({ error: "Local upload disabled (STORAGE_BACKEND != local)" });
+    return;
+  }
+  try {
+    await storage.acceptUpload(req.params.id, req);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    if (err instanceof ObjectNotFoundError) {
+      res.status(400).json({ error: "Invalid upload id" });
+    } else {
+      console.error("Local upload failed:", err);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  }
+});
+
+/**
+ * GET /storage/objects/serve?path=/objects/<id>
+ * Streamt een eerder geüpload object terug. Werkt voor beide backends.
  */
 router.get("/storage/objects/serve", async (req: Request, res: Response) => {
   const objectPath = req.query.path as string;
@@ -53,28 +80,12 @@ router.get("/storage/objects/serve", async (req: Request, res: Response) => {
     return;
   }
   try {
-    const file = await objectStorageService.getObjectEntityFile(objectPath);
-    const response = await objectStorageService.downloadObject(file);
-    const contentType = response.headers.get("content-type") ?? "application/octet-stream";
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "private, max-age=3600");
-    if (response.body) {
-      const reader = response.body.getReader();
-      const nodeReadable = new Readable({
-        async read() {
-          const { done, value } = await reader.read();
-          if (done) this.push(null);
-          else this.push(Buffer.from(value));
-        },
-      });
-      nodeReadable.pipe(res);
-    } else {
-      res.status(204).end();
-    }
+    await getStorage().serveObject(objectPath, res);
   } catch (err) {
     if (err instanceof ObjectNotFoundError) {
       res.status(404).json({ error: "Object not found" });
     } else {
+      console.error("Error serving object:", err);
       res.status(500).json({ error: "Failed to serve object" });
     }
   }

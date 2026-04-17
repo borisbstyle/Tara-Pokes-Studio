@@ -32,12 +32,9 @@ function groupByDate(slots: Slot[]) {
   return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
 }
 
-// ⚠️ SELF-HOSTING: deze functie praat met de Replit object-storage endpoints.
-// Werkt out-of-the-box op de Pi zodra je artifacts/api-server/src/lib/objectStorage.ts
-// hebt vervangen door een lokale-schijf of S3-implementatie. Geen wijziging
-// hier nodig zolang de twee endpoints (request-url + de PUT) hetzelfde
-// contract behouden: { uploadURL, objectPath } terug, en daarna een PUT
-// naar uploadURL met het bestand in de body.
+// Foto-upload — werkt voor zowel de Replit- als de lokale-schijf-backend
+// dankzij de StorageBackend abstractie aan de server-kant. Switch via
+// STORAGE_BACKEND=local op de server, hier hoeft niets aangepast.
 async function uploadPhoto(file: File): Promise<string | null> {
   try {
     const metaRes = await fetch(`${BASE}/api/storage/uploads/request-url`, {
