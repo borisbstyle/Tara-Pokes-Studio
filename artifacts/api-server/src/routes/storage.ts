@@ -1,3 +1,18 @@
+// ============================================================================
+// ⚠️  SELF-HOSTING TODO — foto-upload endpoints
+// ----------------------------------------------------------------------------
+// Deze routes leunen volledig op ../lib/objectStorage.ts (Replit object-storage).
+// Voor self-hosting op een Pi/VPS hoef je deze file niet te herschrijven —
+// pas alleen objectStorage.ts aan zodat:
+//   - POST /storage/uploads/request-url → een eigen lokale upload-URL teruggeeft
+//   - GET  /storage/objects/serve       → vanaf disk (of MinIO/S3) leest
+//
+// Eventueel wil je hieronder een extra route toevoegen voor de daadwerkelijke
+// PUT-upload als je Optie A (lokale schijf) gebruikt — bijvoorbeeld:
+//   router.put("/storage/upload/:id", express.raw({ limit: "20mb" }), …)
+// die het bestand naar /home/pi/tara-pokes/uploads/<id> schrijft.
+// ============================================================================
+
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
