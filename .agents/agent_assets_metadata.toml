@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "Avh9EIUuimIbvByhpi0Ob"
@@ -36,3 +35,9 @@ id = "6MYvVROlKFM2Pzl0v1hfI"
 uri = "file://artifacts/tara-pokes/src/assets/gallery-5.png"
 type = "image"
 title = "Fine-line tattoo abstract"
+
+[[outputs]]
+id = "n_qlW0l986gcQTh_RbFUc"
+uri = "file://SELF_HOSTING.md"
+type = "text"
+title = "Self-Hosting handleiding"
