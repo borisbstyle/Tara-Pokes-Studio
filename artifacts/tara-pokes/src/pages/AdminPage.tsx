@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ToggleLeft, ToggleRight, Loader2, CheckCircle, XCircle, Clock, Calendar, User, Mail as MailIcon, Image, RefreshCw, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
+import { Plus, Trash2, ToggleLeft, ToggleRight, Loader2, CheckCircle, XCircle, Clock, Calendar, User, Mail as MailIcon, Image, RefreshCw, ChevronLeft, ChevronRight, MessageCircle, ArrowDownAZ, ArrowUpAZ, Filter } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
@@ -180,6 +180,9 @@ export default function AdminPage() {
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
 
+  const [bookingsSort, setBookingsSort] = useState<"newest" | "oldest" | "upcoming">("newest");
+  const [bookingsFilter, setBookingsFilter] = useState<"all" | "pending" | "confirmed" | "cancelled">("all");
+
   const [calMonth, setCalMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -318,25 +321,38 @@ export default function AdminPage() {
     await Promise.all([loadBookings(), loadSlots()]);
   }
 
-  async function confirmViaEmail(id: number) {
+  async function postBrevoEmail(id: number, kind: "confirm" | "cancel" | "reschedule", successMsg: string) {
     try {
-      const res = await fetch(`${BASE}/api/booking/admin/bookings/${id}/confirm-email`, {
+      const res = await fetch(`${BASE}/api/booking/admin/bookings/${id}/${kind}-email`, {
         method: "POST", headers: authHeaders(pin),
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 503 && data.error === "not_configured") {
         alert(`${data.title}\n\n${data.message}`);
-        return;
+        return false;
       }
       if (!res.ok) {
-        alert(`Bevestigingsmail kon niet verstuurd worden:\n\n${data.message ?? data.error ?? "Onbekende fout"}`);
-        return;
+        alert(`E-mail kon niet verstuurd worden:\n\n${data.message ?? data.error ?? "Onbekende fout"}`);
+        return false;
       }
-      alert("Bevestigingsmail verstuurd ✓");
+      alert(successMsg);
       await Promise.all([loadBookings(), loadSlots()]);
+      return true;
     } catch (err) {
       alert(`Er ging iets mis: ${err}`);
+      return false;
     }
+  }
+  const confirmViaEmail = (id: number) => postBrevoEmail(id, "confirm", "Bevestigingsmail verstuurd ✓");
+  const cancelViaEmail = (id: number) => postBrevoEmail(id, "cancel", "Annuleringsmail verstuurd ✓");
+  const rescheduleViaEmail = (id: number) => postBrevoEmail(id, "reschedule", "Verplaatsings-mail verstuurd ✓");
+
+  async function deleteBooking(id: number) {
+    if (!confirm("Deze afspraak permanent verwijderen? Dit kan niet ongedaan gemaakt worden.")) return;
+    await fetch(`${BASE}/api/booking/admin/bookings/${id}`, {
+      method: "DELETE", headers: { Authorization: `Bearer ${pin}` },
+    });
+    await Promise.all([loadBookings(), loadSlots()]);
   }
 
   // ── Login screen ──────────────────────────────────────────────────────────
@@ -369,6 +385,126 @@ export default function AdminPage() {
       </div>
     );
   }
+
+  // ── Action button renderers ───────────────────────────────────────────────
+  const renderBookingActions = (booking: Booking, slot: Slot | null) => {
+    const btn = "flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded-sm transition-colors w-full text-center leading-tight";
+    const phone = booking.phone;
+
+    return (
+      <div className="grid grid-cols-2 gap-2 w-full mt-2">
+        {/* CONFIRM row — only when pending */}
+        {booking.status === "pending" && (
+          <>
+            {phone ? (
+              <a href={whatsappConfirmUrl(booking, slot)!} target="_blank" rel="noreferrer"
+                onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                className={`${btn} bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] hover:bg-[#25D366]/20`}>
+                <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> Bevestig via WhatsApp
+              </a>
+            ) : (
+              <button disabled className={`${btn} bg-foreground/5 border border-border/40 text-foreground/30 cursor-not-allowed`}>
+                <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> Geen telefoon
+              </button>
+            )}
+            <button onClick={() => confirmViaEmail(booking.id)}
+              className={`${btn} bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100`}>
+              <MailIcon className="w-3.5 h-3.5 flex-shrink-0" /> Bevestig via e-mail
+            </button>
+            <button onClick={() => updateBookingStatus(booking.id, "confirmed")}
+              className={`${btn} col-span-2 bg-green-50 border border-green-200 text-green-700 hover:bg-green-100`}>
+              <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" /> Bevestigen (zonder melding)
+            </button>
+          </>
+        )}
+
+        {/* CANCEL row — when not yet cancelled */}
+        {booking.status !== "cancelled" && (
+          <>
+            {phone ? (
+              <a href={whatsappCancelUrl(booking, slot)!} target="_blank" rel="noreferrer"
+                onClick={() => updateBookingStatus(booking.id, "cancelled")}
+                className={`${btn} bg-orange-50 border border-orange-300 text-orange-700 hover:bg-orange-100`}>
+                <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> Annuleer via WhatsApp
+              </a>
+            ) : (
+              <button disabled className={`${btn} bg-foreground/5 border border-border/40 text-foreground/30 cursor-not-allowed`}>
+                <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> Geen telefoon
+              </button>
+            )}
+            <button onClick={() => cancelViaEmail(booking.id)}
+              className={`${btn} bg-orange-50 border border-orange-300 text-orange-700 hover:bg-orange-100`}>
+              <MailIcon className="w-3.5 h-3.5 flex-shrink-0" /> Annuleer via e-mail
+            </button>
+            <button onClick={() => updateBookingStatus(booking.id, "cancelled")}
+              className={`${btn} col-span-2 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100`}>
+              <XCircle className="w-3.5 h-3.5 flex-shrink-0" /> Annuleer (zonder melding)
+            </button>
+          </>
+        )}
+
+        {/* DELETE — always available */}
+        <button onClick={() => deleteBooking(booking.id)}
+          className={`${btn} col-span-2 bg-foreground/5 border border-dashed border-foreground/30 text-foreground/55 hover:bg-foreground/10 hover:text-red-600`}>
+          <Trash2 className="w-3.5 h-3.5 flex-shrink-0" /> Verwijder definitief
+        </button>
+      </div>
+    );
+  };
+
+  /** Save buttons for the time-edit panel (2x2 grid). `confirmedBooking` may be null if no notification target. */
+  const renderTimeEditSaveButtons = (
+    slotId: number,
+    confirmedBooking: Booking | null,
+    afterSave?: () => void,
+  ) => {
+    const btn = "flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded-sm transition-colors w-full text-center leading-tight";
+    const canSave = !!editDate && !!editStart && !!editEnd;
+    const doSave = async () => { await saveSlotEdit(slotId); afterSave?.(); };
+    const hasNotifTarget = confirmedBooking && canSave;
+    const phone = confirmedBooking?.phone;
+
+    return (
+      <div className="grid grid-cols-2 gap-2 w-full pt-1">
+        <button onClick={doSave} disabled={!canSave}
+          className={`${btn} bg-primary text-primary-foreground disabled:opacity-40`}>
+          Opslaan (zonder melding)
+        </button>
+        <button onClick={() => setReassigning(null)}
+          className={`${btn} border border-border/50 text-foreground/55 hover:border-foreground/40`}>
+          Sluiten
+        </button>
+
+        {hasNotifTarget && phone ? (
+          <a
+            href={whatsappRescheduleUrl(confirmedBooking!, { date: editDate, startTime: editStart, endTime: editEnd })!}
+            target="_blank" rel="noreferrer"
+            onClick={doSave}
+            className={`${btn} bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] hover:bg-[#25D366]/20`}>
+            <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> Opslaan + WhatsApp
+          </a>
+        ) : (
+          <button disabled
+            className={`${btn} bg-foreground/5 border border-border/40 text-foreground/30 cursor-not-allowed`}>
+            <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> {!confirmedBooking ? "Geen bevestigde afspraak" : "Geen telefoon"}
+          </button>
+        )}
+
+        {hasNotifTarget ? (
+          <button
+            onClick={async () => { await doSave(); await rescheduleViaEmail(confirmedBooking!.id); }}
+            className={`${btn} bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100`}>
+            <MailIcon className="w-3.5 h-3.5 flex-shrink-0" /> Opslaan + e-mail
+          </button>
+        ) : (
+          <button disabled
+            className={`${btn} bg-foreground/5 border border-border/40 text-foreground/30 cursor-not-allowed`}>
+            <MailIcon className="w-3.5 h-3.5 flex-shrink-0" /> {!confirmedBooking ? "Geen bevestigde afspraak" : "—"}
+          </button>
+        )}
+      </div>
+    );
+  };
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const tabs: { key: Tab; label: string }[] = [
@@ -627,31 +763,11 @@ export default function AdminPage() {
                                             className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
                                         </div>
                                       </div>
-                                      <div className="flex gap-2 flex-wrap">
-                                        <button onClick={async () => { await saveSlotEdit(slot.id); setSelectedDay(editDate); }}
-                                          disabled={!editDate || !editStart || !editEnd}
-                                          className="px-4 py-1.5 bg-primary text-primary-foreground text-xs rounded-sm disabled:opacity-40">
-                                          Opslaan
-                                        </button>
-                                        {(() => {
-                                          const b = slot.bookings.find((x) => x.status === "confirmed");
-                                          if (!b || !b.phone || !editDate || !editStart || !editEnd) return null;
-                                          return (
-                                            <a
-                                              href={whatsappRescheduleUrl(b, { date: editDate, startTime: editStart, endTime: editEnd })!}
-                                              target="_blank" rel="noreferrer"
-                                              onClick={async () => { await saveSlotEdit(slot.id); setSelectedDay(editDate); }}
-                                              className="flex items-center gap-1.5 px-4 py-1.5 bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] text-xs rounded-sm hover:bg-[#25D366]/20 transition-colors"
-                                            >
-                                              <MessageCircle className="w-3.5 h-3.5" /> Opslaan + WhatsApp melding
-                                            </a>
-                                          );
-                                        })()}
-                                        <button onClick={() => setReassigning(null)}
-                                          className="px-4 py-1.5 border border-border/50 text-xs text-foreground/50 rounded-sm hover:border-foreground/40">
-                                          Annuleren
-                                        </button>
-                                      </div>
+                                      {renderTimeEditSaveButtons(
+                                        slot.id,
+                                        slot.bookings.find((x) => x.status === "confirmed") ?? null,
+                                        () => setSelectedDay(editDate),
+                                      )}
                                     </div>
                                   )}
 
@@ -681,53 +797,7 @@ export default function AdminPage() {
                                           ))}
                                         </div>
                                       )}
-                                      {/* Confirm / cancel actions */}
-                                      {booking.status !== "cancelled" && (
-                                        <div className="flex gap-2 mt-2 flex-wrap">
-                                          {booking.status === "pending" && booking.phone && (
-                                            <a
-                                              href={whatsappConfirmUrl(booking, slot)!}
-                                              target="_blank" rel="noreferrer"
-                                              onClick={() => updateBookingStatus(booking.id, "confirmed")}
-                                              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] text-xs rounded-sm hover:bg-[#25D366]/20 transition-colors"
-                                            >
-                                              <MessageCircle className="w-3.5 h-3.5" /> Bevestig via WhatsApp
-                                            </a>
-                                          )}
-                                          {booking.status === "pending" && (
-                                            <button
-                                              onClick={() => confirmViaEmail(booking.id)}
-                                              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-sm hover:bg-blue-100 transition-colors"
-                                            >
-                                              <MailIcon className="w-3.5 h-3.5" /> Bevestig via e-mail
-                                            </button>
-                                          )}
-                                          {booking.status === "pending" && (
-                                            <button
-                                              onClick={() => updateBookingStatus(booking.id, "confirmed")}
-                                              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"
-                                            >
-                                              <CheckCircle className="w-3.5 h-3.5" /> Bevestigen
-                                            </button>
-                                          )}
-                                          {booking.status === "confirmed" && booking.phone && (
-                                            <a
-                                              href={whatsappCancelUrl(booking, slot)!}
-                                              target="_blank" rel="noreferrer"
-                                              onClick={() => updateBookingStatus(booking.id, "cancelled")}
-                                              className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 text-orange-700 text-xs rounded-sm hover:bg-orange-100 transition-colors"
-                                            >
-                                              <MessageCircle className="w-3.5 h-3.5" /> Annuleer via WhatsApp
-                                            </a>
-                                          )}
-                                          <button
-                                            onClick={() => updateBookingStatus(booking.id, "cancelled")}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 text-red-600 text-xs rounded-sm hover:bg-red-100 transition-colors"
-                                          >
-                                            <XCircle className="w-3.5 h-3.5" /> Annuleren
-                                          </button>
-                                        </div>
-                                      )}
+                                      {renderBookingActions(booking, slot)}
                                     </div>
                                   )}
                                 </div>
@@ -922,156 +992,165 @@ export default function AdminPage() {
           )}
 
           {/* ── Afspraken ── */}
-          {tab === "afspraken" && (
+          {tab === "afspraken" && (() => {
+            const filtered = bookingsList.filter(({ booking }) =>
+              bookingsFilter === "all" ? true : booking.status === bookingsFilter
+            );
+            const sorted = [...filtered].sort((a, b) => {
+              if (bookingsSort === "newest") return b.booking.createdAt.localeCompare(a.booking.createdAt);
+              if (bookingsSort === "oldest") return a.booking.createdAt.localeCompare(b.booking.createdAt);
+              // upcoming: by slot date+time ascending; bookings without slot go to bottom
+              const ak = a.slot ? `${a.slot.date}T${a.slot.startTime}` : "9999";
+              const bk = b.slot ? `${b.slot.date}T${b.slot.startTime}` : "9999";
+              return ak.localeCompare(bk);
+            });
+
+            const filterChip = (key: typeof bookingsFilter, label: string, count: number) => (
+              <button
+                key={key}
+                onClick={() => setBookingsFilter(key)}
+                className={`px-3 py-1.5 text-xs rounded-sm border transition-colors ${
+                  bookingsFilter === key
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-white text-foreground/55 border-border/50 hover:border-primary/50"
+                }`}
+              >
+                {label} <span className="opacity-60">({count})</span>
+              </button>
+            );
+
+            const sortChip = (key: typeof bookingsSort, label: string, icon: React.ReactNode) => (
+              <button
+                key={key}
+                onClick={() => setBookingsSort(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm border transition-colors ${
+                  bookingsSort === key
+                    ? "bg-foreground/85 text-background border-foreground/85"
+                    : "bg-white text-foreground/55 border-border/50 hover:border-foreground/40"
+                }`}
+              >
+                {icon} {label}
+              </button>
+            );
+
+            const counts = {
+              all: bookingsList.length,
+              pending: bookingsList.filter((b) => b.booking.status === "pending").length,
+              confirmed: bookingsList.filter((b) => b.booking.status === "confirmed").length,
+              cancelled: bookingsList.filter((b) => b.booking.status === "cancelled").length,
+            };
+
+            return (
             <motion.div key="afspraken" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <h2 className="font-serif text-2xl text-foreground/85 mb-8">Afspraken overzicht</h2>
+              <h2 className="font-serif text-2xl text-foreground/85 mb-6">Afspraken overzicht</h2>
+
+              {/* Sort + filter bar */}
+              <div className="bg-white border border-border/40 rounded-sm p-4 mb-6 space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-foreground/45 mr-1">
+                    <Filter className="w-3.5 h-3.5" /> Filter
+                  </span>
+                  {filterChip("all", "Alle", counts.all)}
+                  {filterChip("pending", "Aangevraagd", counts.pending)}
+                  {filterChip("confirmed", "Bevestigd", counts.confirmed)}
+                  {filterChip("cancelled", "Geannuleerd", counts.cancelled)}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs uppercase tracking-wider text-foreground/45 mr-1">Sorteer</span>
+                  {sortChip("newest", "Nieuwste eerst", <ArrowDownAZ className="w-3.5 h-3.5" />)}
+                  {sortChip("oldest", "Oudste eerst", <ArrowUpAZ className="w-3.5 h-3.5" />)}
+                  {sortChip("upcoming", "Aankomend eerst", <Calendar className="w-3.5 h-3.5" />)}
+                </div>
+              </div>
+
               {bookingsLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-foreground/30" /></div>
-              ) : bookingsList.length === 0 ? (
-                <p className="text-center text-foreground/40 font-light py-12">Nog geen afspraken ontvangen.</p>
+              ) : sorted.length === 0 ? (
+                <p className="text-center text-foreground/40 font-light py-12">
+                  {bookingsList.length === 0 ? "Nog geen afspraken ontvangen." : "Geen afspraken die aan dit filter voldoen."}
+                </p>
               ) : (
                 <div className="space-y-4">
-                  {bookingsList.map(({ booking, slot }) => (
+                  {sorted.map(({ booking, slot }) => (
                     <div key={booking.id} className="bg-white border border-border/40 rounded-sm p-5">
-                      <div className="flex items-start justify-between gap-4 flex-wrap">
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-primary/50" />
-                            <span className="text-sm font-medium text-foreground/80">{booking.name}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded border ${statusColor(booking.status)}`}>
-                              {statusLabel(booking.status)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-foreground/50">
-                            <MailIcon className="w-3.5 h-3.5" /> {booking.email}
-                            {booking.phone && <span>· {booking.phone}</span>}
-                          </div>
-                          {slot && (
-                            <div className="flex items-center gap-2 text-xs text-foreground/50">
-                              <Calendar className="w-3.5 h-3.5" />
-                              {new Date(slot.date + "T00:00:00").toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" })} · {slot.startTime} – {slot.endTime}
-                            </div>
-                          )}
-                          {booking.message && (
-                            <p className="text-xs text-foreground/50 italic mt-1 max-w-md">"{booking.message}"</p>
-                          )}
-                          {booking.photoUrls && booking.photoUrls.length > 0 && (
-                            <div className="flex items-center gap-2 mt-2 flex-wrap">
-                              <Image className="w-3.5 h-3.5 text-primary/50" />
-                              {booking.photoUrls.map((url, pi) => (
-                                <a key={pi} href={`${BASE}/api/storage/objects/serve?path=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer"
-                                  className="text-xs text-primary underline">
-                                  Foto {pi + 1}
-                                </a>
-                              ))}
-                            </div>
-                          )}
+                      {/* Booking info */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <User className="w-4 h-4 text-primary/50" />
+                          <span className="text-sm font-medium text-foreground/80">{booking.name}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded border ${statusColor(booking.status)}`}>
+                            {statusLabel(booking.status)}
+                          </span>
                         </div>
-
-                        <div className="flex flex-col gap-2 flex-shrink-0 items-end">
-                          {booking.status === "pending" && (
-                            <div className="flex gap-2 flex-wrap justify-end">
-                              {booking.phone && (
-                                <a
-                                  href={whatsappConfirmUrl(booking, slot)!}
-                                  target="_blank" rel="noreferrer"
-                                  onClick={() => updateBookingStatus(booking.id, "confirmed")}
-                                  className="flex items-center gap-1.5 px-3 py-2 bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] text-xs rounded-sm hover:bg-[#25D366]/20 transition-colors"
-                                >
-                                  <MessageCircle className="w-3.5 h-3.5" /> Bevestig via WhatsApp
-                                </a>
-                              )}
-                              <button
-                                onClick={() => confirmViaEmail(booking.id)}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-sm hover:bg-blue-100 transition-colors"
-                              >
-                                <MailIcon className="w-3.5 h-3.5" /> Bevestig via e-mail
-                              </button>
-                              <button
-                                onClick={() => updateBookingStatus(booking.id, "confirmed")}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-green-50 border border-green-200 text-green-700 text-xs rounded-sm hover:bg-green-100 transition-colors"
-                              >
-                                <CheckCircle className="w-3.5 h-3.5" /> Bevestigen
-                              </button>
-                              {booking.status === "confirmed" && booking.phone && (
-                                <a
-                                  href={whatsappCancelUrl(booking, slot)!}
-                                  target="_blank" rel="noreferrer"
-                                  onClick={() => updateBookingStatus(booking.id, "cancelled")}
-                                  className="flex items-center gap-1.5 px-3 py-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs rounded-sm hover:bg-orange-100 transition-colors"
-                                >
-                                  <MessageCircle className="w-3.5 h-3.5" /> Annuleer via WhatsApp
-                                </a>
-                              )}
-                              <button
-                                onClick={() => updateBookingStatus(booking.id, "cancelled")}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-red-50 border border-red-200 text-red-600 text-xs rounded-sm hover:bg-red-100 transition-colors"
-                              >
-                                <XCircle className="w-3.5 h-3.5" /> Annuleren
-                              </button>
-                            </div>
-                          )}
-                          {/* Slot time edit */}
-                          {reassigning === booking.id && slot ? (
-                            <div className="mt-2 space-y-2 border border-border/40 rounded-sm p-3 bg-background">
-                              <p className="text-xs uppercase tracking-wider text-foreground/40 mb-2">Wijzig tijdstip</p>
-                              <div className="grid grid-cols-3 gap-2">
-                                <div>
-                                  <label className="text-xs text-foreground/40 block mb-1">Datum</label>
-                                  <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
-                                    className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-foreground/40 block mb-1">Van</label>
-                                  <input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)}
-                                    className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-foreground/40 block mb-1">Tot</label>
-                                  <input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)}
-                                    className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
-                                </div>
-                              </div>
-                              <div className="flex gap-2 pt-1 flex-wrap">
-                                <button
-                                  onClick={() => saveSlotEdit(slot.id)}
-                                  disabled={!editDate || !editStart || !editEnd}
-                                  className="px-4 py-1.5 bg-primary text-primary-foreground text-xs rounded-sm disabled:opacity-40"
-                                >
-                                  Opslaan
-                                </button>
-                                {booking.status === "confirmed" && booking.phone && editDate && editStart && editEnd && (
-                                  <a
-                                    href={whatsappRescheduleUrl(booking, { date: editDate, startTime: editStart, endTime: editEnd })!}
-                                    target="_blank" rel="noreferrer"
-                                    onClick={() => saveSlotEdit(slot.id)}
-                                    className="flex items-center gap-1.5 px-4 py-1.5 bg-[#25D366]/10 border border-[#25D366]/40 text-[#1a8c4a] text-xs rounded-sm hover:bg-[#25D366]/20 transition-colors"
-                                  >
-                                    <MessageCircle className="w-3.5 h-3.5" /> Opslaan + WhatsApp melding
-                                  </a>
-                                )}
-                                <button onClick={() => setReassigning(null)}
-                                  className="px-4 py-1.5 border border-border/50 text-xs text-foreground/50 rounded-sm hover:border-foreground/40">
-                                  Annuleren
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => startReassign({ booking, slot })}
-                              className="flex items-center gap-1.5 text-xs text-foreground/40 hover:text-primary transition-colors mt-1"
-                            >
-                              <RefreshCw className="w-3 h-3" /> Wijzig tijdstip
-                            </button>
-                          )}
+                        <div className="flex items-center gap-2 text-xs text-foreground/50 flex-wrap">
+                          <MailIcon className="w-3.5 h-3.5" /> {booking.email}
+                          {booking.phone && <span>· {booking.phone}</span>}
                         </div>
+                        {slot && (
+                          <div className="flex items-center gap-2 text-xs text-foreground/50 flex-wrap">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {new Date(slot.date + "T00:00:00").toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" })} · {slot.startTime} – {slot.endTime}
+                          </div>
+                        )}
+                        {booking.message && (
+                          <p className="text-xs text-foreground/50 italic mt-1 max-w-md whitespace-pre-line">"{booking.message}"</p>
+                        )}
+                        {booking.photoUrls && booking.photoUrls.length > 0 && (
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <Image className="w-3.5 h-3.5 text-primary/50" />
+                            {booking.photoUrls.map((url, pi) => (
+                              <a key={pi} href={`${BASE}/api/storage/objects/serve?path=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer"
+                                className="text-xs text-primary underline">
+                                Foto {pi + 1}
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
+
+                      {/* Reschedule (time edit) */}
+                      {slot && (
+                        reassigning === booking.id ? (
+                          <div className="mt-3 space-y-2 border border-border/40 rounded-sm p-3 bg-background">
+                            <p className="text-xs uppercase tracking-wider text-foreground/40 mb-2">Wijzig tijdstip</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              <div>
+                                <label className="text-xs text-foreground/40 block mb-1">Datum</label>
+                                <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
+                                  className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                              </div>
+                              <div>
+                                <label className="text-xs text-foreground/40 block mb-1">Van</label>
+                                <input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)}
+                                  className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                              </div>
+                              <div>
+                                <label className="text-xs text-foreground/40 block mb-1">Tot</label>
+                                <input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)}
+                                  className="w-full px-2 py-1.5 border border-border/50 text-xs rounded-sm bg-white focus:outline-none focus:border-primary/50" />
+                              </div>
+                            </div>
+                            {renderTimeEditSaveButtons(slot.id, booking.status === "confirmed" ? booking : null)}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startReassign({ booking, slot })}
+                            className="flex items-center gap-1.5 text-xs text-foreground/45 hover:text-primary transition-colors mt-3"
+                          >
+                            <RefreshCw className="w-3 h-3" /> Wijzig tijdstip
+                          </button>
+                        )
+                      )}
+
+                      {/* Action grid */}
+                      {renderBookingActions(booking, slot)}
                     </div>
                   ))}
                 </div>
               )}
             </motion.div>
-          )}
+            );
+          })()}
 
         </AnimatePresence>
       </div>
