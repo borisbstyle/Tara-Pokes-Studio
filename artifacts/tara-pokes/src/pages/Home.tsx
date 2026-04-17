@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
-import { ArrowRight, Instagram, Mail, MapPin, Plus, Minus, MessageCircle, CheckCircle } from "lucide-react";
+import { ArrowRight, Instagram, MapPin, Plus, Minus, MessageCircle, CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import BookingSection from "@/components/BookingSection";
 
@@ -44,7 +44,7 @@ export default function Home() {
           <a href="#waarom"  className="hover:text-primary transition-colors" data-testid="link-why">{t.nav.why}</a>
           <a href="#reviews" className="hover:text-primary transition-colors" data-testid="link-reviews">{t.nav.reviews}</a>
           <a href="#flash"   className="hover:text-primary transition-colors" data-testid="link-flash">{t.nav.flash}</a>
-          <a href="#afspraak" className="hover:text-primary transition-colors" data-testid="link-booking">{t.nav.booking}</a>
+          <a href="#agenda" className="hover:text-primary transition-colors" data-testid="link-booking">{t.nav.booking}</a>
           <button onClick={toggle} data-testid="button-lang-toggle"
             className="ml-1 px-3 py-1 text-xs tracking-widest uppercase border border-foreground/25 hover:border-primary/70 hover:text-primary transition-colors rounded-sm">
             {t.langToggle}
@@ -100,10 +100,6 @@ export default function Home() {
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 1.1 }}
             className="flex flex-col sm:flex-row gap-4">
-            <a href="#afspraak" data-testid="btn-hero-book"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-primary text-primary-foreground text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors rounded-sm">
-              <MessageCircle className="w-4 h-4" /> {t.hero.cta1}
-            </a>
             <a href="#werk" data-testid="btn-hero-work"
               className="inline-flex items-center justify-center gap-2 px-7 py-3.5 border border-foreground/30 text-foreground/80 text-xs uppercase tracking-widest hover:border-foreground/60 transition-colors rounded-sm">
               {t.hero.cta2} <ArrowRight className="w-4 h-4" />
@@ -368,46 +364,6 @@ export default function Home() {
               </AnimatePresence>
             </motion.div>
           ))}
-        </div>
-      </section>
-
-      {/* ── BOOKING CONTACT ── */}
-      <section id="afspraak" className="py-24 md:py-32 px-6 md:px-12 border-t border-border/30 bg-white">
-        <div className="max-w-3xl mx-auto text-center">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-            <motion.span variants={fadeUp} className="text-xs uppercase tracking-widest text-primary/70 mb-5 block">
-              {t.booking.label}
-            </motion.span>
-            <AnimatePresence mode="wait">
-              <motion.h2 key={lang + "-book-h"} variants={fadeUp}
-                className="text-3xl md:text-5xl font-serif mb-6 text-foreground/90 font-light">
-                {t.booking.title}
-              </motion.h2>
-            </AnimatePresence>
-            <AnimatePresence mode="wait">
-              <motion.p key={lang + "-book-p"} variants={fadeUp}
-                className="text-foreground/55 font-light text-base max-w-md mx-auto mb-10 leading-relaxed">
-                {t.booking.text}
-              </motion.p>
-            </AnimatePresence>
-            <motion.div variants={fadeUp}
-              className="flex flex-col sm:flex-row justify-center gap-4 items-center">
-              <a href="https://wa.me/31613415766" target="_blank" rel="noreferrer"
-                data-testid="btn-whatsapp-booking"
-                className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors uppercase tracking-widest text-xs font-medium rounded-sm">
-                <MessageCircle className="w-4 h-4" /> {t.booking.whatsapp}
-              </a>
-              <a href="https://instagram.com/tara.pokes" target="_blank" rel="noreferrer"
-                data-testid="btn-ig-booking"
-                className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 border border-border/70 hover:border-primary/50 transition-colors uppercase tracking-widest text-xs font-medium rounded-sm">
-                <Instagram className="w-4 h-4" /> {t.booking.instagram}
-              </a>
-              <a href="mailto:tara@tarapokes.com" data-testid="btn-email-booking"
-                className="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 border border-border/70 hover:border-primary/50 transition-colors uppercase tracking-widest text-xs font-medium rounded-sm">
-                <Mail className="w-4 h-4" /> {t.booking.email}
-              </a>
-            </motion.div>
-          </motion.div>
         </div>
       </section>
 
